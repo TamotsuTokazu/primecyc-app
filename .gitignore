@@ -1,0 +1,97 @@
+# ---- CMake-related ----
+/build/
+# Ignore the build/ directory (if building in-tree)
+/CMakeFiles/
+/CMakeCache.txt
+/cmake_install.cmake
+/Makefile
+
+# Ignore any build-related files generated in the source directory itself
+CMakeScripts/
+Testing/
+CTestTestfile.cmake
+
+# ---- Compiled binary files ----
+*.exe
+# Executables (Windows)
+*.out
+# Executables (Linux and Mac)
+*.app
+# Executable files on macOS
+*.dll
+# Dynamic-link library (Windows)
+*.so
+# Shared object (Linux)
+*.dylib
+# Shared object (macOS)
+*.a
+# Static library
+*.lib
+# Static library (Windows)
+
+# ---- Intermediate build files ----
+*.o
+# Object files
+*.obj
+# Object files (Windows)
+*.lo
+# Libtool object files
+*.slo
+# Libtool object files
+*.pdb
+# PDB files (debugging symbols, common on Windows)
+*.ilk
+# Incremental linker file (Windows)
+*.map
+# Linker map file
+*.tmp
+# Temporary files
+*.log
+# Log files
+
+# ---- IDE-specific files ----
+# CLion
+.idea/
+*.iml
+*.iws
+
+# Visual Studio
+*.sln
+*.vcxproj*
+*.vcproj*
+.vscode/
+# If using VS Code and wish to ignore its settings
+.vscode/
+
+# ---- System-specific ----
+*.DS_Store
+# macOS
+Thumbs.db
+# Windows image file cache
+desktop.ini
+# Windows desktop file
+
+# ---- Other (coverage, debugging, etc.) ----
+*.gcno
+# GCOV coverage files
+*.gcda
+*.gcov
+
+# ---- Autotools-generated ----
+/aclocal.m4
+/autom4te.cache
+/compile
+/config.guess
+/config.sub
+/configure
+/depcomp
+/install-sh
+/ltmain.sh
+/missing
+/Makefile.in
+
+# ---- External libraries ----
+# Ignore the lib directory containing third-party libraries (if applicable)
+/lib/*
+!.gitkeep
+# Allow "lib/" to exist, but only track ".gitkeep" for empty dir

@@ -1,0 +1,1 @@
+- Poly subtraction does not check format.
