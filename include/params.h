@@ -15,11 +15,11 @@ using RGSWCiphertext = std::pair<std::vector<RLWECiphertext>, std::vector<RLWECi
 
 namespace p {
     const Integer t = 1 << 6;
-    const uint32_t n = 3;
-    // const uint32_t p0 = 1439;
-    // const uint32_t p1 = 1447;
-    const uint32_t p0 = 11;
-    const uint32_t p1 = 13;
+    const uint32_t n = 60;
+    const uint32_t p0 = 1439;
+    const uint32_t p1 = 1447;
+    // const uint32_t p0 = 101;
+    // const uint32_t p1 = 103;
 
     // const Integer Q("72057594241389101");
     // const Integer rootOfUnity0("3242320199475");

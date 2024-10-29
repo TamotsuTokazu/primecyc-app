@@ -12,9 +12,11 @@ struct Scheme {
     std::vector<RLWESwitchingKey> ksk_galois;
     std::vector<RGSWCiphertext> bk;
 
+    Poly skp;
+
     Scheme(Params p, Vector sk);
 
-    Poly GaloisConjugate(Poly &x, const uint32_t &a);
+    Poly GaloisConjugate(const Poly &x, const uint32_t &a);
 
     template <typename T>
     std::vector<T> GaloisConjugate(const std::vector<T> &x, const uint32_t &a);

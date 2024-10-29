@@ -4,18 +4,17 @@
 #include "params.h"
 #include "rlwe.h"
 
-Scheme::Scheme(Params p, Vector sk) : params(p), ksk_galois(params.p), bk(sk.GetLength()) {
-    sk.ModEq(params.p);
+Scheme::Scheme(Params p, Vector sk) : params(p), ksk_galois(params.p), bk(sk.GetLength()), skp(lbcrypto::DiscreteGaussianGeneratorImpl<Vector>(), params.poly, COEFFICIENT) {
     sk.SetModulus(params.p);
-    Poly skp(lbcrypto::DiscreteGaussianGeneratorImpl<Vector>(), params.poly, COEFFICIENT);
+    sk.ModEq(params.p);
     skp.SetFormat(EVALUATION);
-// #pragma omp parallel for num_threads(lbcrypto::OpenFHEParallelControls.GetThreadLimit(params.p - 2))
+#pragma omp parallel for num_threads(lbcrypto::OpenFHEParallelControls.GetThreadLimit(params.p - 2))
     for (uint32_t i = 2; i < params.p; i++) {
         auto skpi = GaloisConjugate(skp, i);
         auto ksk = KeySwitchGen({skpi}, {skp});
         ksk_galois[i] = ksk;
     }
-// #pragma omp parallel for num_threads(lbcrypto::OpenFHEParallelControls.GetThreadLimit(sk.GetLength()))
+#pragma omp parallel for num_threads(lbcrypto::OpenFHEParallelControls.GetThreadLimit(sk.GetLength()))
     for (uint32_t i = 0; i < sk.GetLength(); i++) {
         Poly m(params.poly, COEFFICIENT, true);
         auto t = sk[i].ConvertToInt();
@@ -26,13 +25,12 @@ Scheme::Scheme(Params p, Vector sk) : params(p), ksk_galois(params.p), bk(sk.Get
                 m[j] = Integer(params.poly->GetModulus() - 1);
             }
         }
-        std::cout << "m: " << m << std::endl;
         m.SetFormat(EVALUATION);
         bk[i] = RGSWEncrypt(m, {skp});
     }
 }
 
-Poly Scheme::GaloisConjugate(Poly &x, const uint32_t &a) {
+Poly Scheme::GaloisConjugate(const Poly &x, const uint32_t &a) {
     auto z = x;
     uint32_t n = x.GetLength() + 1;
     z.SetFormat(EVALUATION);
@@ -182,17 +180,37 @@ RLWECiphertext Scheme::ExtMult(const RLWECiphertext &ct, const RGSWCiphertext &c
 }
 
 RLWECiphertext Scheme::Process(Vector a, Integer b) {
-    a.ModEq(params.p);
     a.SetModulus(params.p);
+    a.ModEq(params.p);
     b.ModEq(params.p);
     Poly ca(params.poly, COEFFICIENT, true);
     Poly cb(params.poly, COEFFICIENT, true);
-    cb[0] = p::Q / p::t;
+    if (b == params.p - 1) {
+        for (uint32_t i = 0; i < params.p - 1; i++) {
+            cb[i] = params.poly->GetModulus() - p::Q / p::t;
+        }
+    } else {
+        cb[b.ConvertToInt()] = p::Q / p::t;
+    }
     ca.SetFormat(EVALUATION);
     cb.SetFormat(EVALUATION);
     RLWECiphertext c{ca, cb};
+    Integer t = 1;
     for (uint32_t i = 0; i < bk.size(); i++) {
-        c = ExtMult(c, bk[i]);
+        a[i] = params.p - a[i];
+        if (a[i] != params.p) {
+            t.ModMulEq(a[i].ModInverse(params.p), params.p);
+            if (t != 1) {
+                c = GaloisConjugate(c, t.ConvertToInt());
+                c = KeySwitch(c, ksk_galois[t.ConvertToInt()]);
+            }
+            c = ExtMult(c, bk[i]);
+            t = a[i];
+        }
+    }
+    if (t != 1) {
+        c = GaloisConjugate(c, t.ConvertToInt());
+        c = KeySwitch(c, ksk_galois[t.ConvertToInt()]);
     }
     return c;
 }
