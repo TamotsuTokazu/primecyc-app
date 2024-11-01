@@ -28,4 +28,4 @@ set( CMAKE_CXX_FLAGS ${OpenFHE_CXX_FLAGS})
 add_definitions(-DPARALLEL)
 
 add_executable(primecyc-app main.cpp)
-target_link_libraries(primecyc-app PRIVATE OPENFHEcore OPENFHEbinfhe OPENFHEpke)
+target_link_libraries(primecyc-app PRIVATE OPENFHEcore OPENFHEbinfhe)

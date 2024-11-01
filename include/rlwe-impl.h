@@ -31,12 +31,13 @@ Scheme::Scheme(Params p, Vector sk) : params(p), ksk_galois(params.p), bk(sk.Get
 }
 
 Poly Scheme::GaloisConjugate(const Poly &x, const uint32_t &a) {
-    auto z = x;
+    if (x.GetFormat() != EVALUATION) {
+        throw std::runtime_error("GaloisConjugate requires an evaluation format polynomial");
+    }
     uint32_t n = x.GetLength() + 1;
-    z.SetFormat(EVALUATION);
     Poly y(params.poly, EVALUATION, true);
     for (uint32_t i = 1; i < n; ++i) {
-        y[i - 1] = z[(i * a) % n - 1];
+        y[i - 1] = x[(i * a) % n - 1];
     }
     return y;
 }
@@ -179,7 +180,7 @@ RLWECiphertext Scheme::ExtMult(const RLWECiphertext &ct, const RGSWCiphertext &c
     return {std::move(ra), std::move(rb)};
 }
 
-RLWECiphertext Scheme::Process(Vector a, Integer b) {
+RLWECiphertext Scheme::Process(Vector a, Integer b, Integer q_plain) {
     a.SetModulus(params.p);
     a.ModEq(params.p);
     b.ModEq(params.p);
@@ -190,7 +191,7 @@ RLWECiphertext Scheme::Process(Vector a, Integer b) {
             cb[i] = params.poly->GetModulus() - p::Q / p::t;
         }
     } else {
-        cb[b.ConvertToInt()] = p::Q / p::t;
+        cb[b.ConvertToInt()] = p::Q / q_plain;
     }
     ca.SetFormat(EVALUATION);
     cb.SetFormat(EVALUATION);
@@ -212,6 +213,52 @@ RLWECiphertext Scheme::Process(Vector a, Integer b) {
         c = GaloisConjugate(c, t.ConvertToInt());
         c = KeySwitch(c, ksk_galois[t.ConvertToInt()]);
     }
+    return c;
+}
+
+Poly Tensor(const Poly &a, const Poly &b) {
+    // assume a follows p0 and b follows p1
+    Poly c(p::ppq, EVALUATION, true);
+    std::vector<uint32_t> idx(p::pq);
+    u_int32_t cur = 0;
+    for (u_int32_t i = 1; i < p::pq; i++) {
+        if (i % p::p0 != 0 && i % p::p1 != 0) {
+            idx[i] = cur++;
+        }
+    }
+    for (u_int32_t i = 1; i < p::p0; i++) {
+        for (u_int32_t j = 1; j < p::p1; j++) {
+            c[idx[(i * p::p1 + j * p::p0) % p::pq]] = a[i - 1].ModMul(b[j - 1], p::Q);
+        }
+    }
+    return c;
+}
+
+RLWEKey TensorKey(const RLWEKey &skp, const RLWEKey &skq) {
+    auto skp0 = skp[0];
+    auto skq0 = skq[0];
+    Poly p1(p::pp0, EVALUATION, true);
+    Poly q1(p::pp1, EVALUATION, true);
+    for (uint32_t i = 0; i < p::p0 - 1; i++) {
+        p1[i] = 1;
+    }
+    for (uint32_t i = 0; i < p::p1 - 1; i++) {
+        q1[i] = 1;
+    }
+    RLWEKey sk;
+    sk.push_back(Tensor(skp0, skq0).Negate());
+    sk.push_back(Tensor(skp0, q1));
+    sk.push_back(Tensor(p1, skq0));
+    return sk;
+}
+
+RLWECiphertext TensorCt(const RLWECiphertext &ap, const RLWECiphertext &aq) {
+    RLWECiphertext c;
+    Integer z = p::Q - p::t;
+    c.push_back(z * Tensor(ap[0], aq[0]));
+    c.push_back(z * Tensor(ap[0], aq[1]));
+    c.push_back(z * Tensor(ap[1], aq[0]));
+    c.push_back(z * Tensor(ap[1], aq[1]));
     return c;
 }
 

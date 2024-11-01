@@ -35,7 +35,13 @@ struct Scheme {
 
     RLWECiphertext ExtMult(const RLWECiphertext &ct, const RGSWCiphertext &ctGSW);
 
-    RLWECiphertext Process(Vector a, Integer b);
+    RLWECiphertext Process(Vector a, Integer b, Integer q_plain);
 };
+
+Poly Tensor(const Poly &a, const Poly &b);
+
+RLWEKey TensorKey(const RLWEKey &skp, const RLWEKey &skq);
+
+RLWECiphertext TensorCt(const RLWECiphertext &ap, const RLWECiphertext &aq);
 
 #endif
