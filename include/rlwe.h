@@ -12,6 +12,8 @@ struct Scheme {
     std::vector<RLWESwitchingKey> ksk_galois;
     std::vector<RGSWCiphertext> bk;
 
+    std::vector<uint32_t> iso_indices;
+
     Poly skp;
 
     Scheme(Params p, Vector sk = {});

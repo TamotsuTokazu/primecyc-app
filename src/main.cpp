@@ -6,51 +6,47 @@
 int main() {
     uint32_t pq = p::p0 * p::p1;
 
-    // primecyc::RaderFFTNat<Vector>::m_enabled[p::p0] = true;
-    // primecyc::RaderFFTNat<Vector>::m_enabled[p::p1] = true;
+    primecyc::RaderFFTNat<Vector>::m_enabled[p::p0] = true;
+    primecyc::RaderFFTNat<Vector>::m_enabled[p::p1] = true;
+
     // print params
     std::cout << "p0: " << p::p0 << std::endl;
     std::cout << "p1: " << p::p1 << std::endl;
     std::cout << "pq: " << pq << std::endl;
     std::cout << "Q: " << p::Q << std::endl;
     std::cout << "rootOfUnity0: " << p::rootOfUnity0 << std::endl;
+    std::cout << "rootOfUnity0: " << p::rootOfUnity0.ModExp(p::p0 - 1, p::Q) << std::endl;
+    std::cout << "rootOfUnity0: " << p::rootOfUnity0.ModExp(p::p0, p::Q) << std::endl;
+    std::cout << "rootOfUnity0: " << p::rootOfUnity0.ModExp(p::p0 * (p::p0 - 1), p::Q) << std::endl;
     std::cout << "rootOfUnity1: " << p::rootOfUnity1 << std::endl;
+    std::cout << "rootOfUnity1: " << p::rootOfUnity1.ModExp(p::p1 - 1, p::Q) << std::endl;
+    std::cout << "rootOfUnity1: " << p::rootOfUnity1.ModExp(p::p1, p::Q) << std::endl;
+    std::cout << "rootOfUnity1: " << p::rootOfUnity1.ModExp(p::p1 * (p::p1 - 1), p::Q) << std::endl;
     std::cout << "rootOfUnitypq: " << p::rootOfUnitypq << std::endl;
-
-    // auto dgg = lbcrypto::DiscreteGaussianGeneratorImpl<Vector>();
-    // Poly sk(dgg, p::pp0, COEFFICIENT);
-    // Poly m(p::pp0, COEFFICIENT, true);
-    // m[0] = 1;
-    // sk.SetFormat(EVALUATION);
-    // m.SetFormat(EVALUATION);
-    // Scheme sc{{p::pp0, p::p0}};
-    // auto ct = sc.RLWEEncrypt(m, {sk}, p::t);
-    // std::cout << "ct: " << ct[0] << " " << ct[1] << std::endl;
-    // std::cout << "decrypted: " << sc.RLWEDecrypt(ct, {sk}, p::t) << std::endl;
 
     auto dugpq = lbcrypto::DiscreteUniformGeneratorImpl<Vector>(pq);
     Vector sk = dugpq.GenerateVector(p::n);
     Vector a = dugpq.GenerateVector(p::n);
-    Integer b = 3;
+
+    Integer b = 2;
     for (uint32_t i = 0; i < p::n; i++) {
-        b = a[i] * sk[i];
+        b += a[i] * sk[i];
     }
 
     Scheme sc0{{p::pp0, p::p0}, sk};
     auto ct0 = sc0.Process(a, b, p::t);
     std::cout << "ct0: " << sc0.RLWEDecrypt(ct0, {sc0.skp}, p::t) << std::endl;
 
-    // Scheme sc1{{p::pp1, p::p1}, sk};
-    // auto ct1 = sc1.Process(a, b, p::t);
-    // std::cout << "ct1: " << sc1.RLWEDecrypt(ct1, {sc1.skp}, p::t) << std::endl;
+
+    Scheme sc1{{p::pp1, p::p1}, sk};
+    auto ct1 = sc1.Process(a, b, p::t);
+    std::cout << "ct1: " << sc1.RLWEDecrypt(ct1, {sc1.skp}, p::t) << std::endl;
 
     // ChineseRemainderTransformArb<Vector>().SetCylotomicPolynomial(lbcrypto::GetCyclotomicPolynomial<Vector>(p::pq, p::Q), p::Q);
 
     // auto ct = TensorCt(ct0, ct1);
-    // std::cout << "ct: " << ct << std::endl;
 
     // auto skk = TensorKey({sc0.skp}, {sc1.skp});
-    // std::cout << "skk: " << skk << std::endl;
 
     // std::cout << "decrypted: " << sc0.RLWEDecrypt(ct, skk, p::t) << std::endl;
 
