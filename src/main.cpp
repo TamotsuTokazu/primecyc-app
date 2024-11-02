@@ -20,15 +20,15 @@ int main() {
     auto ct1 = sc1.Process(a, b, p::t);
     std::cout << "ct1: " << sc1.RLWEDecrypt(ct1, {sc1.skp}, p::t) << std::endl;
 
-    ChineseRemainderTransformArb<Vector>().SetCylotomicPolynomial(lbcrypto::GetCyclotomicPolynomial<Vector>(p::pq, p::Q), p::Q);
+    // ChineseRemainderTransformArb<Vector>().SetCylotomicPolynomial(lbcrypto::GetCyclotomicPolynomial<Vector>(p::pq, p::Q), p::Q);
 
-    auto ct = TensorCt(ct0, ct1);
-    std::cout << "ct: " << ct << std::endl;
+    // auto ct = TensorCt(ct0, ct1);
+    // std::cout << "ct: " << ct << std::endl;
 
-    auto skk = TensorKey({sc0.skp}, {sc1.skp});
-    std::cout << "skk: " << skk << std::endl;
+    // auto skk = TensorKey({sc0.skp}, {sc1.skp});
+    // std::cout << "skk: " << skk << std::endl;
 
-    std::cout << "decrypted: " << sc0.RLWEDecrypt(ct, skk, p::t) << std::endl;
+    // std::cout << "decrypted: " << sc0.RLWEDecrypt(ct, skk, p::t) << std::endl;
 
     return 0;
 }

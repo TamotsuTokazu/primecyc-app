@@ -16,10 +16,8 @@ using RGSWCiphertext = std::pair<std::vector<RLWECiphertext>, std::vector<RLWECi
 namespace p {
     const Integer t = 1 << 6;
     const uint32_t n = 600;
-    // const uint32_t p0 = 1439;
-    // const uint32_t p1 = 1447;
-    const uint32_t p0 = 5;
-    const uint32_t p1 = 7;
+    const uint32_t p0 = 1153;
+    const uint32_t p1 = 1297;
     const uint32_t pq = p0 * p1;
     const uint32_t Bks = 1 << 8;
 
