@@ -4,29 +4,32 @@
 #include "params.h"
 #include "rlwe.h"
 
-Scheme::Scheme(Params p, Vector sk) : params(p), ksk_galois(params.p), bk(sk.GetLength()), skp(lbcrypto::DiscreteGaussianGeneratorImpl<Vector>(), params.poly, COEFFICIENT) {
-    sk.SetModulus(params.p);
-    sk.ModEq(params.p);
-    skp.SetFormat(EVALUATION);
-#pragma omp parallel for num_threads(lbcrypto::OpenFHEParallelControls.GetThreadLimit(params.p - 2))
-    for (uint32_t i = 2; i < params.p; i++) {
-        auto skpi = GaloisConjugate(skp, i);
-        auto ksk = KeySwitchGen({skpi}, {skp});
-        ksk_galois[i] = ksk;
-    }
-#pragma omp parallel for num_threads(lbcrypto::OpenFHEParallelControls.GetThreadLimit(sk.GetLength()))
-    for (uint32_t i = 0; i < sk.GetLength(); i++) {
-        Poly m(params.poly, COEFFICIENT, true);
-        auto t = sk[i].ConvertToInt();
-        if (t < params.p - 1) {
-            m[sk[i].ConvertToInt()] = 1;
-        } else {
-            for (uint32_t j = 0; j < params.p - 1; j++) {
-                m[j] = Integer(params.poly->GetModulus() - 1);
-            }
+Scheme::Scheme(Params p, Vector sk) : params(p), ksk_galois(params.p), bk(sk.GetLength()) {
+    if (sk.GetLength() != 0) {
+        skp = Poly(lbcrypto::DiscreteGaussianGeneratorImpl<Vector>(), params.poly, COEFFICIENT);
+        sk.SetModulus(params.p);
+        sk.ModEq(params.p);
+        skp.SetFormat(EVALUATION);
+// #pragma omp parallel for num_threads(lbcrypto::OpenFHEParallelControls.GetThreadLimit(params.p - 2))
+        for (uint32_t i = 2; i < params.p; i++) {
+            auto skpi = GaloisConjugate(skp, i);
+            auto ksk = KeySwitchGen({skpi}, {skp});
+            ksk_galois[i] = ksk;
         }
-        m.SetFormat(EVALUATION);
-        bk[i] = RGSWEncrypt(m, {skp});
+// #pragma omp parallel for num_threads(lbcrypto::OpenFHEParallelControls.GetThreadLimit(sk.GetLength()))
+        for (uint32_t i = 0; i < sk.GetLength(); i++) {
+            Poly m(params.poly, COEFFICIENT, true);
+            auto t = sk[i].ConvertToInt();
+            if (t < params.p - 1) {
+                m[sk[i].ConvertToInt()] = 1;
+            } else {
+                for (uint32_t j = 0; j < params.p - 1; j++) {
+                    m[j] = Integer(params.poly->GetModulus() - 1);
+                }
+            }
+            m.SetFormat(EVALUATION);
+            bk[i] = RGSWEncrypt(m, {skp});
+        }
     }
 }
 

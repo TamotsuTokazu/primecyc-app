@@ -14,7 +14,7 @@ struct Scheme {
 
     Poly skp;
 
-    Scheme(Params p, Vector sk);
+    Scheme(Params p, Vector sk = {});
 
     Poly GaloisConjugate(const Poly &x, const uint32_t &a);
 
@@ -43,5 +43,7 @@ Poly Tensor(const Poly &a, const Poly &b);
 RLWEKey TensorKey(const RLWEKey &skp, const RLWEKey &skq);
 
 RLWECiphertext TensorCt(const RLWECiphertext &ap, const RLWECiphertext &aq);
+
+#include "rlwe-impl.h"
 
 #endif
