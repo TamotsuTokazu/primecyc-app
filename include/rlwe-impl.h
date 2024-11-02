@@ -16,13 +16,13 @@ Scheme::Scheme(Params p, Vector sk) : params(p), ksk_galois(params.p), bk(sk.Get
             iso_indices[t] = i;
             t = t * g % params.p;
         }
-#pragma omp parallel for num_threads(lbcrypto::OpenFHEParallelControls.GetThreadLimit(params.p - 2))
+// #pragma omp parallel for num_threads(lbcrypto::OpenFHEParallelControls.GetThreadLimit(params.p - 2))
         for (uint32_t i = 2; i < params.p; i++) {
             auto skpi = GaloisConjugate(skp, i);
             auto ksk = KeySwitchGen({skpi}, {skp});
             ksk_galois[i] = ksk;
         }
-#pragma omp parallel for num_threads(lbcrypto::OpenFHEParallelControls.GetThreadLimit(sk.GetLength()))
+// #pragma omp parallel for num_threads(lbcrypto::OpenFHEParallelControls.GetThreadLimit(sk.GetLength()))
         for (uint32_t i = 0; i < sk.GetLength(); i++) {
             Poly m(params.poly, COEFFICIENT, true);
             auto t = sk[i].ConvertToInt();
