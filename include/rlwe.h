@@ -44,4 +44,8 @@ RLWEKey TensorKey(const RLWEKey &skp, const RLWEKey &skq);
 
 RLWECiphertext TensorCt(const RLWECiphertext &ap, const RLWECiphertext &aq);
 
+Poly TracePqToP(const Poly &a);
+
+Integer TracePtoZ(const Poly &a);
+
 #endif

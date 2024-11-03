@@ -34,14 +34,16 @@ namespace p {
     const Integer rootOfUnity0 = rootOfUnitypq.ModExp(p1, Q);
     const Integer rootOfUnity1 = rootOfUnitypq.ModExp(p0, Q);
 
-    const uint32_t nttSize = 1 << (int)std::ceil(std::log2(2 * p0 - 1));
+    const uint32_t nttSize0 = 1 << (int)std::ceil(std::log2(2 * p0 - 1));
+    const uint32_t nttSize1 = 1 << (int)std::ceil(std::log2(2 * p1 - 1));
     const uint32_t nttSizepq = 1 << (int)std::ceil(std::log2(2 * pq - 1));
     const Integer bigModulus = lbcrypto::FirstPrime<Integer>(1 + (int)(std::ceil(std::log2(2 * pq - 1) + 2 * std::log2(Q.ConvertToInt()))), nttSizepq);
-    const Integer bigRootOfUnity = lbcrypto::RootOfUnity<Integer>(nttSize, bigModulus);
+    const Integer bigRootOfUnity0 = lbcrypto::RootOfUnity<Integer>(nttSize0, bigModulus);
+    const Integer bigRootOfUnity1 = lbcrypto::RootOfUnity<Integer>(nttSize1, bigModulus);
     const Integer bigRootOfUnitypq = lbcrypto::RootOfUnity<Integer>(nttSizepq, bigModulus);
 
-    const auto pp0 = std::make_shared<ILParams>(p0, Q, rootOfUnity0, bigModulus, bigRootOfUnity);
-    const auto pp1 = std::make_shared<ILParams>(p1, Q, rootOfUnity1, bigModulus, bigRootOfUnity);
+    const auto pp0 = std::make_shared<ILParams>(p0, Q, rootOfUnity0, bigModulus, bigRootOfUnity0);
+    const auto pp1 = std::make_shared<ILParams>(p1, Q, rootOfUnity1, bigModulus, bigRootOfUnity1);
     const auto ppq = std::make_shared<ILParams>(pq, Q, rootOfUnitypq, bigModulus, bigRootOfUnitypq);
 
 }

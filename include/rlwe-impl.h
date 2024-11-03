@@ -4,29 +4,31 @@
 #include "params.h"
 #include "rlwe.h"
 
-Scheme::Scheme(Params p, Vector sk) : params(p), ksk_galois(params.p), bk(sk.GetLength()), skp(lbcrypto::DiscreteGaussianGeneratorImpl<Vector>(), params.poly, COEFFICIENT) {
-    sk.SetModulus(params.p);
-    sk.ModEq(params.p);
-    skp.SetFormat(EVALUATION);
+Scheme::Scheme(Params p, Vector sk = {}) : params(p), ksk_galois(params.p), bk(sk.GetLength()), skp(lbcrypto::DiscreteGaussianGeneratorImpl<Vector>(), params.poly, COEFFICIENT) {
+    if (sk.GetLength() != 0) {
+        sk.SetModulus(params.p);
+        sk.ModEq(params.p);
+        skp.SetFormat(EVALUATION);
 #pragma omp parallel for num_threads(lbcrypto::OpenFHEParallelControls.GetThreadLimit(params.p - 2))
-    for (uint32_t i = 2; i < params.p; i++) {
-        auto skpi = GaloisConjugate(skp, i);
-        auto ksk = KeySwitchGen({skpi}, {skp});
-        ksk_galois[i] = ksk;
-    }
-#pragma omp parallel for num_threads(lbcrypto::OpenFHEParallelControls.GetThreadLimit(sk.GetLength()))
-    for (uint32_t i = 0; i < sk.GetLength(); i++) {
-        Poly m(params.poly, COEFFICIENT, true);
-        auto t = sk[i].ConvertToInt();
-        if (t < params.p - 1) {
-            m[sk[i].ConvertToInt()] = 1;
-        } else {
-            for (uint32_t j = 0; j < params.p - 1; j++) {
-                m[j] = Integer(params.poly->GetModulus() - 1);
-            }
+        for (uint32_t i = 2; i < params.p; i++) {
+            auto skpi = GaloisConjugate(skp, i);
+            auto ksk = KeySwitchGen({skpi}, {skp});
+            ksk_galois[i] = ksk;
         }
-        m.SetFormat(EVALUATION);
-        bk[i] = RGSWEncrypt(m, {skp});
+#pragma omp parallel for num_threads(lbcrypto::OpenFHEParallelControls.GetThreadLimit(sk.GetLength()))
+        for (uint32_t i = 0; i < sk.GetLength(); i++) {
+            Poly m(params.poly, COEFFICIENT, true);
+            auto t = sk[i].ConvertToInt();
+            if (t < params.p - 1) {
+                m[sk[i].ConvertToInt()] = 1;
+            } else {
+                for (uint32_t j = 0; j < params.p - 1; j++) {
+                    m[j] = Integer(params.poly->GetModulus() - 1);
+                }
+            }
+            m.SetFormat(EVALUATION);
+            bk[i] = RGSWEncrypt(m, {skp});
+        }
     }
 }
 
@@ -259,6 +261,46 @@ RLWECiphertext TensorCt(const RLWECiphertext &ap, const RLWECiphertext &aq) {
     c.push_back(z * Tensor(ap[0], aq[1]));
     c.push_back(z * Tensor(ap[1], aq[0]));
     c.push_back(z * Tensor(ap[1], aq[1]));
+    return c;
+}
+
+Poly TracePqToP(const Poly &a) {
+    uint32_t n = a.GetLength();
+    Poly c(p::pp0, COEFFICIENT, true);
+    for (uint32_t i = 0; i < p::p0; i++) {
+        for (uint32_t j = 0; j < p::p1; j++) {
+            auto t = (p::p1 * i + p::p0 * j) % p::pq;
+            if (t < n) {
+                if (j == 0) {
+                    auto x = a[t].ModMul(p::p1 - 1, p::Q);
+                    if (i == p::p0 - 1) {
+                        for (uint32_t k = 0; k < p::p0 - 1; k++) {
+                            c[k].ModSubEq(x, p::Q);
+                        }
+                    } else {
+                        c[i].ModAddEq(x, p::Q);
+                    }
+                } else {
+                    if (i == p::p0 - 1) {
+                        for (uint32_t k = 0; k < p::p0 - 1; k++) {
+                            c[k].ModAddEq(a[t], p::Q);
+                        }
+                    } else {
+                        c[i].ModSubEq(a[t], p::Q);
+                    }
+                }
+            }
+        }
+    }
+    // return c * Integer(p::p1 - 1).ModInverse(p::Q);
+    return c;
+}
+
+Integer TracePtoZ(const Poly &a) {
+    Integer c = a[0].ModMul(p::p0 - 1, p::Q);
+    for (uint32_t i = 1; i < p::p0 - 1; i++) {
+        c.ModSubEq(a[i], p::Q);
+    }
     return c;
 }
 
