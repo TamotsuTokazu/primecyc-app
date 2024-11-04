@@ -12,9 +12,11 @@ struct Scheme {
     std::vector<RLWESwitchingKey> ksk_galois;
     std::vector<RGSWCiphertext> bk;
 
+    std::vector<uint32_t> iso_indices;
+
     Poly skp;
 
-    Scheme(Params p, Vector sk);
+    Scheme(Params p, Vector sk = {});
 
     Poly GaloisConjugate(const Poly &x, const uint32_t &a);
 
@@ -47,5 +49,7 @@ RLWECiphertext TensorCt(const RLWECiphertext &ap, const RLWECiphertext &aq);
 Poly TracePqToP(const Poly &a);
 
 Integer TracePtoZ(const Poly &a);
+
+#include "rlwe-impl.h"
 
 #endif

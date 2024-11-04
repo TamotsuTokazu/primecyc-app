@@ -1,11 +1,16 @@
 #include "binfhecontext.h"
 #include "params.h"
-#include "rlwe-impl.h"
+#include "rlwe.h"
+#include "math/math-hal.h"
 
 int main() {
     std::cout << p::nttSizepq << std::endl;
 
     uint32_t pq = p::p0 * p::p1;
+
+    primecyc::RaderFFTNat<Vector>::m_enabled[p::p0] = true;
+    primecyc::RaderFFTNat<Vector>::m_enabled[p::p1] = true;
+
     auto dugpq = lbcrypto::DiscreteUniformGeneratorImpl<Vector>(pq);
     Vector sk = dugpq.GenerateVector(p::n);
     Vector a = dugpq.GenerateVector(p::n);

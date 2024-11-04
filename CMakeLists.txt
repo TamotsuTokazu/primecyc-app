@@ -9,6 +9,7 @@
 
     # Define the sources directory
     add_subdirectory(src)
+    add_subdirectory(examples)
 
     # Optionally add tests
     enable_testing()

@@ -4,18 +4,25 @@
 #include "params.h"
 #include "rlwe.h"
 
-Scheme::Scheme(Params p, Vector sk = {}) : params(p), ksk_galois(params.p), bk(sk.GetLength()), skp(lbcrypto::DiscreteGaussianGeneratorImpl<Vector>(), params.poly, COEFFICIENT) {
+Scheme::Scheme(Params p, Vector sk) : params(p), ksk_galois(params.p), bk(sk.GetLength()), iso_indices(params.p) {
     if (sk.GetLength() != 0) {
+        skp = Poly(lbcrypto::DiscreteGaussianGeneratorImpl<Vector>(), params.poly, COEFFICIENT);
         sk.SetModulus(params.p);
         sk.ModEq(params.p);
         skp.SetFormat(EVALUATION);
-#pragma omp parallel for num_threads(lbcrypto::OpenFHEParallelControls.GetThreadLimit(params.p - 2))
+        usint g = primecycutil::findPrimitiveRoot(params.p);
+        usint t = 1;
+        for (uint32_t i = 0; i < params.p - 1; i++) {
+            iso_indices[t] = i;
+            t = t * g % params.p;
+        }
+// #pragma omp parallel for num_threads(lbcrypto::OpenFHEParallelControls.GetThreadLimit(params.p - 2))
         for (uint32_t i = 2; i < params.p; i++) {
             auto skpi = GaloisConjugate(skp, i);
             auto ksk = KeySwitchGen({skpi}, {skp});
             ksk_galois[i] = ksk;
         }
-#pragma omp parallel for num_threads(lbcrypto::OpenFHEParallelControls.GetThreadLimit(sk.GetLength()))
+// #pragma omp parallel for num_threads(lbcrypto::OpenFHEParallelControls.GetThreadLimit(sk.GetLength()))
         for (uint32_t i = 0; i < sk.GetLength(); i++) {
             Poly m(params.poly, COEFFICIENT, true);
             auto t = sk[i].ConvertToInt();
@@ -36,10 +43,11 @@ Poly Scheme::GaloisConjugate(const Poly &x, const uint32_t &a) {
     if (x.GetFormat() != EVALUATION) {
         throw std::runtime_error("GaloisConjugate requires an evaluation format polynomial");
     }
-    uint32_t n = x.GetLength() + 1;
+    uint32_t n = x.GetLength();
+    uint32_t d = iso_indices[a];
     Poly y(params.poly, EVALUATION, true);
-    for (uint32_t i = 1; i < n; ++i) {
-        y[i - 1] = x[(i * a) % n - 1];
+    for (uint32_t i = 0; i < n; ++i) {
+        y[i] = x[(n + i - d) % n];
     }
     return y;
 }
@@ -190,7 +198,7 @@ RLWECiphertext Scheme::Process(Vector a, Integer b, Integer q_plain) {
     Poly cb(params.poly, COEFFICIENT, true);
     if (b == params.p - 1) {
         for (uint32_t i = 0; i < params.p - 1; i++) {
-            cb[i] = params.poly->GetModulus() - p::Q / p::t;
+            cb[i] = params.poly->GetModulus() - p::Q / q_plain;
         }
     } else {
         cb[b.ConvertToInt()] = p::Q / q_plain;

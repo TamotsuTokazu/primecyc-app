@@ -3,10 +3,10 @@
 
 #include "binfhecontext.h"
 
-using Poly = lbcrypto::Poly;
+using Poly = lbcrypto::NativePoly;
 using Vector = typename Poly::Vector;
 using Integer = typename Poly::Integer;
-using lbcrypto::ILParams;
+using ILParams = Poly::Params;
 
 using RLWECiphertext = std::vector<Poly>;
 using RLWEKey = std::vector<Poly>;
@@ -20,19 +20,21 @@ namespace p {
     const uint32_t p1 = 1297;
     const uint32_t pq = p0 * p1;
     const uint32_t Bks = 1 << 8;
-
-    // const Integer Q("72057594241389101");
-    // const Integer rootOfUnity0("3242320199475");
-    // const Integer rootOfUnity1("1934345196961");
-    // const Integer bigModulus("42535295865117307932921825928971042817");
-    // const Integer bigRootOfUnity("34953128631915424799509995679592822");
     
-    const Integer Q = lbcrypto::FirstPrime<Integer>(56, 2 * pq * t.ConvertToInt());
-    // const Integer rootOfUnity0 = lbcrypto::RootOfUnity<Integer>(2 * p0, Q);
-    // const Integer rootOfUnity1 = lbcrypto::RootOfUnity<Integer>(2 * p1, Q);
-    const Integer rootOfUnitypq = lbcrypto::RootOfUnity<Integer>(2 * pq, Q);
-    const Integer rootOfUnity0 = rootOfUnitypq.ModExp(p1, Q);
-    const Integer rootOfUnity1 = rootOfUnitypq.ModExp(p0, Q);
+    // const Integer Q = lbcrypto::FirstPrime<Integer>(56, p0 * p1 * (p0 - 1) * (p1 - 1));
+    // const Integer rootOfUnity = lbcrypto::RootOfUnity<Integer>(p0 * p1 * (p0 - 1) * (p1 - 1), Q);
+    // const Integer rootOfUnity0 = rootOfUnity.ModExp(p1 * (p1 - 1), Q);
+    // const Integer rootOfUnity1 = rootOfUnity.ModExp(p0 * (p0 - 1), Q);
+    const Integer Q = 36066736134770689;
+    const Integer rootOfUnity = 4364918564594134;
+    const Integer rootOfUnity0 = 28679241126083710;
+    const Integer rootOfUnity1 = 9730598941305417;
+    const Integer rootOfUnitypq = 6492451311899152;
+
+    const Integer bigModulus = Q;
+    const Integer bigRootOfUnity0 = rootOfUnity0;
+    const Integer bigRootOfUnity1 = rootOfUnity1;
+    const Integer bigRootOfUnitypq = rootOfUnitypq;
 
     const uint32_t nttSize0 = 1 << (int)std::ceil(std::log2(2 * p0 - 1));
     const uint32_t nttSize1 = 1 << (int)std::ceil(std::log2(2 * p1 - 1));
