@@ -34,21 +34,6 @@ int main() {
     std::chrono::duration<double> elapsed = end - start;
     std::cout << "Elapsed time: " << elapsed.count() << " seconds" << std::endl;
 
-    // ChineseRemainderTransformArb<Vector>().SetCylotomicPolynomial(lbcrypto::GetCyclotomicPolynomial<Vector>(p::pq, p::Q), p::Q);
-
-    // auto ct = TensorCt(ct0, ct1);
-
-    // auto skk = TensorKey({sc0.skp}, {sc1.skp});
-
-    // std::cout << "decrypted: " << sc0.RLWEDecrypt(ct, skk, p::t) << std::endl;
-
-    // Scheme sctensor({p::ppq, pq});
-    // Poly oneq = Poly(p::pp1, EVALUATION, true);
-    // for (uint32_t i = 0; i < p::p1 - 1; i++) {
-    //     oneq[i] = 1;
-    // }
-    // auto ksk = sctensor.KeySwitchGen(skk, {Tensor(sc0.skp, oneq)});
-    // auto ctfinal = sctensor.KeySwitch(ct, ksk);
 
     return 0;
 }

@@ -26,6 +26,7 @@ namespace p {
     // const Integer rootOfUnity0 = rootOfUnity.ModExp(p1 * (p1 - 1), Q);
     // const Integer rootOfUnity1 = rootOfUnity.ModExp(p0 * (p0 - 1), Q);
     const Integer Q = 36066736134770689;
+    const Integer rootOfUnity = 4364918564594134;
     const Integer rootOfUnity0 = 28679241126083710;
     const Integer rootOfUnity1 = 9730598941305417;
     const Integer rootOfUnitypq = 6492451311899152;
