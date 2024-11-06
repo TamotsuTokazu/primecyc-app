@@ -29,3 +29,6 @@ add_definitions(-DPARALLEL)
 
 add_executable(tensor tensor.cpp)
 target_link_libraries(tensor PRIVATE OPENFHEcore OPENFHEbinfhe)
+
+add_executable(cyc-reduction cyc-reduction.cpp)
+target_link_libraries(cyc-reduction PRIVATE OPENFHEcore OPENFHEbinfhe)
