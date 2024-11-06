@@ -23,9 +23,12 @@ list(APPEND OPENFHE_INCLUDE_DIRS "${CMAKE_BINARY_DIR}/lib/openfhe-development/sr
 
 include_directories(${OPENFHE_INCLUDE_DIRS})
 set( CMAKE_EXE_LINKER_FLAGS ${OpenFHE_EXE_LINKER_FLAGS} )
-set( CMAKE_CXX_FLAGS ${OpenFHE_CXX_FLAGS})
+set( CMAKE_CXX_FLAGS "${OpenFHE_CXX_FLAGS} -O3")
 
 add_definitions(-DPARALLEL)
 
-add_executable(primecyc-app main.cpp)
-target_link_libraries(primecyc-app PRIVATE OPENFHEcore OPENFHEbinfhe)
+add_executable(bdf17 bdf17.cpp)
+target_link_libraries(bdf17 PRIVATE OPENFHEcore OPENFHEbinfhe)
+
+add_executable(bdf17-new bdf17-new.cpp)
+target_link_libraries(bdf17-new PRIVATE OPENFHEcore OPENFHEbinfhe)

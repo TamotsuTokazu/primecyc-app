@@ -95,3 +95,5 @@ desktop.ini
 /lib/*
 !.gitkeep
 # Allow "lib/" to exist, but only track ".gitkeep" for empty dir
+
+*.sage.py

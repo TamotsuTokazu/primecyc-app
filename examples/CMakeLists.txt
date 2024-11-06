@@ -32,3 +32,6 @@ target_link_libraries(tensor PRIVATE OPENFHEcore OPENFHEbinfhe)
 
 add_executable(cyc-reduction cyc-reduction.cpp)
 target_link_libraries(cyc-reduction PRIVATE OPENFHEcore OPENFHEbinfhe)
+
+add_executable(trans trans.cpp)
+target_link_libraries(trans PRIVATE OPENFHEcore OPENFHEbinfhe)
