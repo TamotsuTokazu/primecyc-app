@@ -2,6 +2,11 @@
 #include "rlwe.h"
 #include "math/math-hal.h"
 
+#include <chrono>
+
+#define START_TIMER start = std::chrono::system_clock::now()
+#define END_TIMER std::cout << "Time: " << (std::chrono::duration<double>(std::chrono::system_clock::now() - start).count()) << std::endl
+
 using Poly = lbcrypto::Poly;
 using Scheme = SchemeImpl<Poly>;
 using Vector = Scheme::Vector;
@@ -62,9 +67,10 @@ Poly TracePqToP(const Poly &a);
 Integer TracePtoZ(const Poly &a);
 
 int main() {
-    uint32_t pq = par::p0 * par::p1;
 
-    auto dugpq = lbcrypto::DiscreteUniformGeneratorImpl<Vector>(pq);
+    std::chrono::time_point<std::chrono::system_clock> start;
+
+    auto dugpq = lbcrypto::DiscreteUniformGeneratorImpl<Vector>(par::pq);
     Vector sk = dugpq.GenerateVector(par::n);
     Vector a = dugpq.GenerateVector(par::n);
     Integer b = 0;
@@ -72,42 +78,59 @@ int main() {
         b += a[i] * sk[i];
     }
 
-    std::cout << "Stage 1" << std::endl;
+    std::cout << "Stage 1: Prime KeyGen" << std::endl;
+
+    START_TIMER;
 
     Scheme sc0{{par::pp0, par::p0, par::Q, par::Bks}, sk};
     Scheme sc1{{par::pp1, par::p1, par::Q, par::Bks}, sk};
 
-    std::cout << "Stage 2" << std::endl;
+    END_TIMER;
+
+    std::cout << "Stage 2: Prime Eval" << std::endl;
+
+    START_TIMER;
 
     auto ct0 = sc0.Process(a, b, par::t);
     auto ct1 = sc1.Process(a, b, par::t);
 
-    std::cout << "ct0 decrypted: " << sc0.RLWEDecrypt(ct0, {sc0.skp}, par::t) << std::endl;
-    std::cout << "ct1 decrypted: " << sc1.RLWEDecrypt(ct1, {sc1.skp}, par::t) << std::endl;
+    END_TIMER;
 
-    std::cout << "Stage 3" << std::endl;
+    std::cout << "Stage 3: Tensor" << std::endl;
+
+    START_TIMER;
 
     auto ct = TensorCt(ct0, ct1);
     auto skk = TensorKey({sc0.skp}, {sc1.skp});
 
-    std::cout << "Stage 4" << std::endl;
-
-    Scheme scheme_tensor({par::ppq, pq, par::Q, par::Bks});
+    Scheme scheme_tensor({par::ppq, par::pq, par::Q, par::Bks});
     Poly skpq = Poly(par::ppq, COEFFICIENT, true);
     for (uint32_t i = 0; i < par::n; i++) {
         skpq[i * par::p1] = sk[i];
     }
     skpq.SetFormat(EVALUATION);
 
-    std::cout << "Stage 5" << std::endl;
+    END_TIMER;
+
+    std::cout << "Stage 4: Tensor Switching KeyGen" << std::endl;
+
+    START_TIMER;
 
     auto tensor_ksk = scheme_tensor.KeySwitchGen(skk, {skpq});
 
-    std::cout << "Stage 6" << std::endl;
+    END_TIMER;
+
+    std::cout << "Stage 5: Tensored Key Switching" << std::endl;
+
+    START_TIMER;
 
     auto tensor_ct = scheme_tensor.KeySwitch(ct, tensor_ksk);
 
-    std::cout << "Stage 7" << std::endl;
+    END_TIMER;
+
+    std::cout << "Stage 6: Trace" << std::endl;
+
+    START_TIMER;
 
     auto cta = tensor_ct[0];
     auto ctb = tensor_ct[1];
@@ -123,10 +146,14 @@ int main() {
 
     auto plain = scheme_tensor.RLWEDecrypt({cta, ctb}, {skpq}, par::Q);
     scheme_tensor.ModSwitch(plain, par::t);
+
+    END_TIMER;
+
     std::cout << "decrypted: " << plain << std::endl;
 
     Integer z = TracePtoZ(plain);
     z = (z * par::t + (par::Q / 2)) / par::Q;
+
     std::cout << "decrypted: " << z << std::endl;
 
     return 0;

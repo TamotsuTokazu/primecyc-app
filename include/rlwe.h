@@ -22,7 +22,6 @@ struct SchemeImpl {
         uint32_t Bks;
     };
 
-
     Params params;
 
     std::vector<RLWESwitchingKey> ksk_galois;

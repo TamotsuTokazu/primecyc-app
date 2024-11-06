@@ -2,6 +2,11 @@
 #include "rlwe.h"
 #include "math/math-hal.h"
 
+#include <chrono>
+
+#define START_TIMER start = std::chrono::system_clock::now()
+#define END_TIMER std::cout << "Time: " << (std::chrono::duration<double>(std::chrono::system_clock::now() - start).count()) << std::endl
+
 using Poly = lbcrypto::NativePoly;
 using Scheme = SchemeImpl<Poly>;
 using Vector = Scheme::Vector;
@@ -15,25 +20,22 @@ using RLWESwitchingKey = Scheme::RLWESwitchingKey;
 using RGSWCiphertext = Scheme::RGSWCiphertext;
 
 namespace par {
-    const Integer t = 1 << 6;
-    const uint32_t n = 100;
+    const Integer t("65");
+    const uint32_t n = 600;
     const uint32_t p0 = 1153;
     const uint32_t p1 = 1297;
     const uint32_t pq = p0 * p1;
     const uint32_t Bks = 1 << 6;
-    
-    const Integer Q = 36066736134770689;
-    const Integer rootOfUnity = 4364918564594134;
-    const Integer rootOfUnity0 = 28679241126083710;
-    const Integer rootOfUnity1 = 9730598941305417;
+    const Integer Q("72271898519408641");
 
-    const Integer bigModulus = Q;
-    const Integer bigRootOfUnity0 = rootOfUnity0;
-    const Integer bigRootOfUnity1 = rootOfUnity1;
 
-    const auto pp0 = std::make_shared<ILParams>(p0, Q, rootOfUnity0, bigModulus, bigRootOfUnity0);
-    const auto pp1 = std::make_shared<ILParams>(p1, Q, rootOfUnity1, bigModulus, bigRootOfUnity1);
-    const auto ppq = std::make_shared<ILParams>(pq, Q, rootOfUnity, bigModulus, rootOfUnity);
+    const Integer rootOfUnity("58719525545687598");
+    const Integer rootOfUnity0("56885989372043847");
+    const Integer rootOfUnity1("11962068968745897");
+
+    const auto pp0 = std::make_shared<ILParams>(p0, Q, rootOfUnity0, 0, 0);
+    const auto pp1 = std::make_shared<ILParams>(p1, Q, rootOfUnity1, 0, 0);
+    const auto ppq = std::make_shared<ILParams>(pq, Q, rootOfUnity, 0, 0);
 
 }
 
@@ -45,40 +47,49 @@ Vector TracePqToP(const Vector &a, uint32_t p, uint32_t q, Integer Q);
 Poly TracePqToP(const Poly &a);
 
 int main() {
-    uint32_t pq = par::p0 * par::p1;
+
+    std::chrono::time_point<std::chrono::system_clock> start;
 
     primecyc::RaderFFTNat<Vector>::m_enabled[par::p0] = true;
     primecyc::RaderFFTNat<Vector>::m_enabled[par::p1] = true;
 
-    auto dugpq = lbcrypto::DiscreteUniformGeneratorImpl<Vector>(pq);
+    auto dugpq = lbcrypto::DiscreteUniformGeneratorImpl<Vector>(par::pq);
     Vector sk = dugpq.GenerateVector(par::n);
     Vector a = dugpq.GenerateVector(par::n);
-    Integer b = 0;
+    Integer b = 5;
 
     for (uint32_t i = 0; i < par::n; i++) {
         b += a[i] * sk[i];
     }
 
-    std::cout << "Stage 1" << std::endl;
+    std::cout << "Stage 1: Prime KeyGen" << std::endl;
+
+    START_TIMER;
 
     Scheme sc0{{par::pp0, par::p0, par::Q, par::Bks}, sk};
     Scheme sc1{{par::pp1, par::p1, par::Q, par::Bks}, sk};
 
-    std::cout << "Stage 2" << std::endl;
+    END_TIMER;
+
+    std::cout << "Stage 2: Prime Eval" << std::endl;
+
+    START_TIMER;
 
     auto ct0 = sc0.Process(a, b, par::t);
     auto ct1 = sc1.Process(a, b, par::t);
 
-    primecyc::TensorFFTNat<Vector>::m_factor[pq] = {par::p0, par::p1};
+    primecyc::TensorFFTNat<Vector>::m_factor[par::pq] = {par::p0, par::p1};
 
-    std::cout << "Stage 3" << std::endl;
+    END_TIMER;
+
+    std::cout << "Stage 3: Tensor" << std::endl;
+
+    START_TIMER;
 
     auto ct = TensorCt(ct0, ct1);
     auto skk = TensorKey({sc0.skp}, {sc1.skp});
 
-    std::cout << "Stage 4" << std::endl;
-
-    Scheme scheme_tensor({par::ppq, pq, par::Q, par::Bks});
+    Scheme scheme_tensor({par::ppq, par::pq, par::Q, par::Bks});
 
     Poly skpq = Poly(par::ppq, COEFFICIENT, true);
     for (uint32_t i = 0; i < par::n; i++) {
@@ -94,15 +105,27 @@ int main() {
     }
     skpq.SetFormat(EVALUATION);
 
-    std::cout << "Stage 5" << std::endl;
+    END_TIMER;
+
+    std::cout << "Stage 4: Tensor Switching KeyGen" << std::endl;
+
+    START_TIMER;
 
     auto tensor_ksk = scheme_tensor.KeySwitchGen(skk, {skpq});
 
-    std::cout << "Stage 6" << std::endl;
+    END_TIMER;
+
+    std::cout << "Stage 5: Tensored Key Switching" << std::endl;
+
+    START_TIMER;
 
     auto tensor_ct = scheme_tensor.KeySwitch(ct, tensor_ksk);
+    
+    END_TIMER;
 
-    std::cout << "Stage 7" << std::endl;
+    std::cout << "Stage 6: Trace" << std::endl;
+
+    START_TIMER;
 
     skpq.SetFormat(COEFFICIENT);
     auto cta = tensor_ct[0];
@@ -118,6 +141,9 @@ int main() {
 
     auto plain = sc0.RLWEDecrypt({cta, ctb}, {skpq}, par::Q);
     sc0.ModSwitch(plain, par::t);
+
+    END_TIMER;
+
     std::cout << "decrypted: " << plain << std::endl;
 
     return 0;
