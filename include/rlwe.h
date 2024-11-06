@@ -3,9 +3,25 @@
 
 #include "binfhecontext.h"
 #include <vector>
-#include "params.h"
 
-struct Scheme {
+template <typename Poly>
+struct SchemeImpl {
+    using Vector = typename Poly::Vector;
+    using Integer = typename Poly::Integer;
+    using ILParams = typename Poly::Params;
+
+    using RLWECiphertext = std::vector<Poly>;
+    using RLWEKey = std::vector<Poly>;
+    using RLWESwitchingKey = std::vector<std::vector<RLWECiphertext>>;
+    using RGSWCiphertext = std::pair<std::vector<RLWECiphertext>, std::vector<RLWECiphertext>>;
+
+    struct Params {
+        std::shared_ptr<ILParams> poly;
+        uint32_t p;
+        Integer Q;
+        uint32_t Bks;
+    };
+
 
     Params params;
 
@@ -16,7 +32,7 @@ struct Scheme {
 
     Poly skp;
 
-    Scheme(Params p, Vector sk = {});
+    SchemeImpl(Params p, Vector sk = {});
 
     Poly GaloisConjugate(const Poly &x, const uint32_t &a);
 
@@ -39,16 +55,6 @@ struct Scheme {
 
     RLWECiphertext Process(Vector a, Integer b, Integer q_plain);
 };
-
-Poly Tensor(const Poly &a, const Poly &b);
-
-RLWEKey TensorKey(const RLWEKey &skp, const RLWEKey &skq);
-
-RLWECiphertext TensorCt(const RLWECiphertext &ap, const RLWECiphertext &aq);
-
-Poly TracePqToP(const Poly &a);
-
-Integer TracePtoZ(const Poly &a);
 
 #include "rlwe-impl.h"
 
