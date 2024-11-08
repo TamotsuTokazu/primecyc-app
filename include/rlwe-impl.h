@@ -177,14 +177,14 @@ typename SchemeImpl<Poly>::RLWECiphertext SchemeImpl<Poly>::ExtMult(const RLWECi
     }
     Poly ra(params.poly, EVALUATION, true);
     Poly rb(params.poly, EVALUATION, true);
-    u_int32_t l = ctGSW.first.size();
+    usint l = ctGSW.first.size();
     Poly a = ct[0].Negate(), b = ct[1];
     a.SetFormat(COEFFICIENT);
     b.SetFormat(COEFFICIENT);
-    for (u_int32_t i = 0; i < l; ++i) {
+    for (usint i = 0; i < l; ++i) {
         Poly ai(params.poly, COEFFICIENT, true);
         Poly bi(params.poly, COEFFICIENT, true);
-        for (u_int32_t j = 0; j < a.GetLength(); ++j) {
+        for (usint j = 0; j < a.GetLength(); ++j) {
             ai[j] = a[j] % params.Bks;
             bi[j] = b[j] % params.Bks;
             a[j] /= params.Bks;
@@ -199,7 +199,7 @@ typename SchemeImpl<Poly>::RLWECiphertext SchemeImpl<Poly>::ExtMult(const RLWECi
 }
 
 template <typename Poly>
-typename SchemeImpl<Poly>::RLWECiphertext SchemeImpl<Poly>::Process(Vector a, Integer b, Integer q_plain) {
+typename SchemeImpl<Poly>::RLWECiphertext SchemeImpl<Poly>::Process(Vector a, Integer b, Integer q_plain, Integer mult) {
     a.SetModulus(params.p);
     a.ModEq(params.p);
     b.ModEq(params.p);
@@ -207,10 +207,10 @@ typename SchemeImpl<Poly>::RLWECiphertext SchemeImpl<Poly>::Process(Vector a, In
     Poly cb(params.poly, COEFFICIENT, true);
     if (b == params.p - 1) {
         for (usint i = 0; i < params.p - 1; i++) {
-            cb[i] = params.poly->GetModulus() - params.Q / q_plain;
+            cb[i] = params.Q - (params.Q / q_plain).ModMul(mult, params.Q);
         }
     } else {
-        cb[b.ConvertToInt()] = params.Q / q_plain;
+        cb[b.ConvertToInt()] = (params.Q / q_plain).ModMul(mult, params.Q);
     }
     ca.SetFormat(EVALUATION);
     cb.SetFormat(EVALUATION);

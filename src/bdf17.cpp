@@ -163,14 +163,14 @@ Poly Tensor(const Poly &a, const Poly &b) {
     // assume a follows p0 and b follows p1
     Poly c(par::ppq, EVALUATION, true);
     std::vector<usint> idx(par::pq);
-    u_int32_t cur = 0;
-    for (u_int32_t i = 1; i < par::pq; i++) {
+    usint cur = 0;
+    for (usint i = 1; i < par::pq; i++) {
         if (i % par::p0 != 0 && i % par::p1 != 0) {
             idx[i] = cur++;
         }
     }
-    for (u_int32_t i = 1; i < par::p0; i++) {
-        for (u_int32_t j = 1; j < par::p1; j++) {
+    for (usint i = 1; i < par::p0; i++) {
+        for (usint j = 1; j < par::p1; j++) {
             c[idx[(i * par::p1 + j * par::p0) % par::pq]] = a[i - 1].ModMul(b[j - 1], par::Q);
         }
     }

@@ -24,18 +24,16 @@ using lbcrypto::BigInteger;
 namespace par {
 
 const Integer t("64");
-const usint n = 1;
-const usint p0 = 7;
-const usint p1 = 17;
+const usint n = 100;
+const usint p0 = 1153;
+const usint p1 = 1297;
 const usint pq = p0 * p1;
-const usint Bks = 1 << 6;
-const Integer Q("72057594037973377");
+const usint Bks = 1 << 4;
+const Integer Q("1152920977604149249");
 
-
-const Integer rootOfUnity("41300615006751571");
-const Integer rootOfUnity0("22971456428937296");
-const Integer rootOfUnity1("18115707319199021");
-
+const Integer rootOfUnity("739447795444923848");
+const Integer rootOfUnity0("587824393635068054");
+const Integer rootOfUnity1("950015890856494149");
 
 const auto pp0 = std::make_shared<ILParams>(p0, Q, rootOfUnity0, 0, 0);
 const auto pp1 = std::make_shared<ILParams>(p1, Q, rootOfUnity1, 0, 0);
@@ -95,8 +93,10 @@ int main() {
 
     START_TIMER;
 
-    auto ct0 = sc0.Process(a, b, par::t);
-    auto ct1 = sc1.Process(a, b, par::t);
+    auto mult = Integer(par::pq).ModInverse(par::t);
+
+    auto ct0 = sc0.Process(a, b, par::t, mult);
+    auto ct1 = sc1.Process(a, b, par::t, mult);
 
     primecyc::TensorFFTNat<Vector>::m_factor[par::pq] = {par::p0, par::p1};
 
@@ -117,13 +117,13 @@ int main() {
             for (usint j = 0; j < skpq.GetLength(); j++) {
                 skpq[j] = sk[i];
             }
-        }
-        u_int32_t t = i * par::p1 % par::p0;
-        for (u_int32_t k = 1; k < par::p1; k++) {
-            skpq[t * (par::p1 - 1) + k - 1].ModSub(sk[i], par::Q);
+        } else {
+            usint t = (i * par::p1 % par::p0 - 1) * (par::p1 - 1);
+            for (usint k = 1; k < par::p1; k++) {
+                skpq[t + k - 1].ModSubEq(sk[i], par::Q);
+            }
         }
     }
-    skpq.SetFormat(EVALUATION);
 
     END_TIMER;
 
@@ -131,6 +131,7 @@ int main() {
 
     START_TIMER;
 
+    skpq.SetFormat(EVALUATION);
     auto tensor_ksk = scheme_tensor.KeySwitchGen(skk, {skpq});
 
     END_TIMER;
@@ -200,7 +201,9 @@ int main() {
     ct_extra1[1].SetFormat(COEFFICIENT);
 
     auto lwect = RetrieveLWECt({cta, ctb}) + RetrieveLWECt(ct_extra1);
-    lwect[par::n] += par::Q / par::t;
+    lwect[par::n].ModAddEq((par::Q / par::t).ModMul(mult, par::Q), par::Q);
+
+    END_TIMER;
 
     Integer result = lwect[par::n];
     for (usint i = 0; i < par::n; i++) {
@@ -208,9 +211,8 @@ int main() {
     }
 
     std::cout << "decrypted: " << Resize(result, par::t, par::Q) << std::endl;
-    std::cout << "expected: " << Integer(f_plain[m_plain]).ModMul(par::pq, par::t) << std::endl;
+    std::cout << "expected: " << f_plain[m_plain] << std::endl;
 
-    END_TIMER;
 
     return 0;
 }
@@ -325,7 +327,7 @@ Poly ConstructFP(const std::vector<usint> &f, std::shared_ptr<ILParams> params) 
 
 Poly ConstructKey(Vector sk, std::shared_ptr<ILParams> params) {
     Poly result(params, COEFFICIENT, true);
-    for (usint i = 0; i < sk.GetLength(); i++) {
+    for (usint i = 0; i < par::n; i++) {
         result[i] = sk[i];
     }
     return result;

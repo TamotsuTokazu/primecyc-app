@@ -50,7 +50,7 @@ struct SchemeImpl {
 
     RLWECiphertext ExtMult(const RLWECiphertext &ct, const RGSWCiphertext &ctGSW);
 
-    RLWECiphertext Process(Vector a, Integer b, Integer q_plain);
+    RLWECiphertext Process(Vector a, Integer b, Integer q_plain, Integer mult);
 };
 
 #include "rlwe-impl.h"
