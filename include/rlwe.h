@@ -17,9 +17,9 @@ struct SchemeImpl {
 
     struct Params {
         std::shared_ptr<ILParams> poly;
-        uint32_t p;
+        usint p;
         Integer Q;
-        uint32_t Bks;
+        usint Bks;
     };
 
     Params params;
@@ -27,16 +27,14 @@ struct SchemeImpl {
     std::vector<RLWESwitchingKey> ksk_galois;
     std::vector<RGSWCiphertext> bk;
 
-    std::vector<uint32_t> iso_indices;
-
     Poly skp;
 
     SchemeImpl(Params p, Vector sk = {});
 
-    Poly GaloisConjugate(const Poly &x, const uint32_t &a);
+    Poly GaloisConjugate(const Poly &x, const usint &a);
 
     template <typename T>
-    std::vector<T> GaloisConjugate(const std::vector<T> &x, const uint32_t &a);
+    std::vector<T> GaloisConjugate(const std::vector<T> &x, const usint &a);
 
     RLWECiphertext RLWEEncrypt(const Poly &m, const RLWEKey &sk, const Integer &q_plain);
     Poly RLWEDecrypt(const RLWECiphertext &ct, const RLWEKey &sk, const Integer &q_plain);

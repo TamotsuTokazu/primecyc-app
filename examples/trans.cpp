@@ -5,11 +5,11 @@ using Vector = lbcrypto::BigVector;
 using Integer = Vector::Integer;
 
 const Integer t("65");
-const uint32_t n = 100;
-const uint32_t p0 = 257;
-const uint32_t p1 = 433;
-const uint32_t pq = p0 * p1;
-const uint32_t Bks = 1 << 6;
+const usint n = 100;
+const usint p0 = 257;
+const usint p1 = 433;
+const usint pq = p0 * p1;
+const usint Bks = 1 << 6;
 const Integer Q("72057594422075861");
 
 
@@ -24,11 +24,11 @@ const Integer bigRootOfUnity1("742774059212952446954038657883272672063730");
 const Integer bigRootOfUnitypq("1296198229327671723145458703434013327936548");
 
 // const Integer t("65");
-// const uint32_t n = 1;
-// const uint32_t p0 = 5;
-// const uint32_t p1 = 7;
-// const uint32_t pq = p0 * p1;
-// const uint32_t Bks = 1 << 6;
+// const usint n = 1;
+// const usint p0 = 5;
+// const usint p1 = 7;
+// const usint pq = p0 * p1;
+// const usint Bks = 1 << 6;
 // const Integer Q("72057594037958621");
 
 

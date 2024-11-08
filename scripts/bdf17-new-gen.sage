@@ -1,9 +1,9 @@
-p0, p1 = 1153, 1297
+p0, p1 = 7, 17
 assert is_prime(p0) and is_prime(p1)
 
 n = max(nn for nn in [1, 10, 100, 600] if nn < p0 - 2)
 
-t = 2 ** 6 + 1
+t = 2 ** 6
 
 m = lcm(p0 * p1 * (p0 - 1) * (p1 - 1), t)
 
@@ -15,11 +15,11 @@ while not is_prime(N):
 print(
 f'''
 const Integer t("{t}");
-const uint32_t n = {n};
-const uint32_t p0 = {p0};
-const uint32_t p1 = {p1};
-const uint32_t pq = p0 * p1;
-const uint32_t Bks = 1 << 6;
+const usint n = {n};
+const usint p0 = {p0};
+const usint p1 = {p1};
+const usint pq = p0 * p1;
+const usint Bks = 1 << 6;
 const Integer Q("{N}");
 ''')
 

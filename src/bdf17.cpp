@@ -21,11 +21,11 @@ using RGSWCiphertext = Scheme::RGSWCiphertext;
 
 namespace par {
     const Integer t("65");
-    const uint32_t n = 600;
-    const uint32_t p0 = 1153;
-    const uint32_t p1 = 1297;
-    const uint32_t pq = p0 * p1;
-    const uint32_t Bks = 1 << 6;
+    const usint n = 600;
+    const usint p0 = 1153;
+    const usint p1 = 1297;
+    const usint pq = p0 * p1;
+    const usint Bks = 1 << 6;
     const Integer Q("72057595543256441");
 
 
@@ -43,9 +43,9 @@ namespace par {
     // const Integer rootOfUnity0 = rootOfUnitypq.ModExp(p1, Q);
     // const Integer rootOfUnity1 = rootOfUnitypq.ModExp(p0, Q);
 
-    // const uint32_t nttSize0 = 1 << (int)std::ceil(std::log2(2 * p0 - 1));
-    // const uint32_t nttSize1 = 1 << (int)std::ceil(std::log2(2 * p1 - 1));
-    // const uint32_t nttSizepq = 1 << (int)std::ceil(std::log2(2 * pq - 1));
+    // const usint nttSize0 = 1 << (int)std::ceil(std::log2(2 * p0 - 1));
+    // const usint nttSize1 = 1 << (int)std::ceil(std::log2(2 * p1 - 1));
+    // const usint nttSizepq = 1 << (int)std::ceil(std::log2(2 * pq - 1));
 
     // const Integer bigModulus = lbcrypto::FirstPrime<Integer>(1 + (int)(std::ceil(std::log2(2 * pq - 1) + 2 * std::log2(Q.ConvertToInt()))), nttSizepq);
     // const Integer bigRootOfUnity0 = lbcrypto::RootOfUnity<Integer>(nttSize0, bigModulus);
@@ -74,7 +74,7 @@ int main() {
     Vector sk = dugpq.GenerateVector(par::n);
     Vector a = dugpq.GenerateVector(par::n);
     Integer b = 0;
-    for (uint32_t i = 0; i < par::n; i++) {
+    for (usint i = 0; i < par::n; i++) {
         b += a[i] * sk[i];
     }
 
@@ -105,7 +105,7 @@ int main() {
 
     Scheme scheme_tensor({par::ppq, par::pq, par::Q, par::Bks});
     Poly skpq = Poly(par::ppq, COEFFICIENT, true);
-    for (uint32_t i = 0; i < par::n; i++) {
+    for (usint i = 0; i < par::n; i++) {
         skpq[i * par::p1] = sk[i];
     }
     skpq.SetFormat(EVALUATION);
@@ -162,7 +162,7 @@ int main() {
 Poly Tensor(const Poly &a, const Poly &b) {
     // assume a follows p0 and b follows p1
     Poly c(par::ppq, EVALUATION, true);
-    std::vector<uint32_t> idx(par::pq);
+    std::vector<usint> idx(par::pq);
     u_int32_t cur = 0;
     for (u_int32_t i = 1; i < par::pq; i++) {
         if (i % par::p0 != 0 && i % par::p1 != 0) {
@@ -182,10 +182,10 @@ RLWEKey TensorKey(const RLWEKey &skp, const RLWEKey &skq) {
     auto skq0 = skq[0];
     Poly p1(par::pp0, EVALUATION, true);
     Poly q1(par::pp1, EVALUATION, true);
-    for (uint32_t i = 0; i < par::p0 - 1; i++) {
+    for (usint i = 0; i < par::p0 - 1; i++) {
         p1[i] = 1;
     }
-    for (uint32_t i = 0; i < par::p1 - 1; i++) {
+    for (usint i = 0; i < par::p1 - 1; i++) {
         q1[i] = 1;
     }
     RLWEKey sk;
@@ -206,16 +206,16 @@ RLWECiphertext TensorCt(const RLWECiphertext &ap, const RLWECiphertext &aq) {
 }
 
 Poly TracePqToP(const Poly &a) {
-    uint32_t n = a.GetLength();
+    usint n = a.GetLength();
     Poly c(par::pp0, COEFFICIENT, true);
-    for (uint32_t i = 0; i < par::p0; i++) {
-        for (uint32_t j = 0; j < par::p1; j++) {
+    for (usint i = 0; i < par::p0; i++) {
+        for (usint j = 0; j < par::p1; j++) {
             auto t = (par::p1 * i + par::p0 * j) % par::pq;
             if (t < n) {
                 if (j == 0) {
                     auto x = a[t].ModMul(par::p1 - 1, par::Q);
                     if (i == par::p0 - 1) {
-                        for (uint32_t k = 0; k < par::p0 - 1; k++) {
+                        for (usint k = 0; k < par::p0 - 1; k++) {
                             c[k].ModSubEq(x, par::Q);
                         }
                     } else {
@@ -223,7 +223,7 @@ Poly TracePqToP(const Poly &a) {
                     }
                 } else {
                     if (i == par::p0 - 1) {
-                        for (uint32_t k = 0; k < par::p0 - 1; k++) {
+                        for (usint k = 0; k < par::p0 - 1; k++) {
                             c[k].ModAddEq(a[t], par::Q);
                         }
                     } else {
@@ -238,7 +238,7 @@ Poly TracePqToP(const Poly &a) {
 
 Integer TracePtoZ(const Poly &a) {
     Integer c = a[0].ModMul(par::p0 - 1, par::Q);
-    for (uint32_t i = 1; i < par::p0 - 1; i++) {
+    for (usint i = 1; i < par::p0 - 1; i++) {
         c.ModSubEq(a[i], par::Q);
     }
     return c;

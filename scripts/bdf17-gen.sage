@@ -15,11 +15,11 @@ while not is_prime(N):
 print(
 f'''
 const Integer t("{t}");
-const uint32_t n = {n};
-const uint32_t p0 = {p0};
-const uint32_t p1 = {p1};
-const uint32_t pq = p0 * p1;
-const uint32_t Bks = 1 << 6;
+const usint n = {n};
+const usint p0 = {p0};
+const usint p1 = {p1};
+const usint pq = p0 * p1;
+const usint Bks = 1 << 6;
 const Integer Q("{N}");
 ''')
 

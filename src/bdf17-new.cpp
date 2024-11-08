@@ -19,23 +19,27 @@ using RLWEKey = Scheme::RLWEKey;
 using RLWESwitchingKey = Scheme::RLWESwitchingKey;
 using RGSWCiphertext = Scheme::RGSWCiphertext;
 
+using lbcrypto::BigInteger;
+
 namespace par {
-    const Integer t("65");
-    const uint32_t n = 600;
-    const uint32_t p0 = 1153;
-    const uint32_t p1 = 1297;
-    const uint32_t pq = p0 * p1;
-    const uint32_t Bks = 1 << 6;
-    const Integer Q("72271898519408641");
+
+const Integer t("64");
+const usint n = 1;
+const usint p0 = 7;
+const usint p1 = 17;
+const usint pq = p0 * p1;
+const usint Bks = 1 << 6;
+const Integer Q("72057594037973377");
 
 
-    const Integer rootOfUnity("58719525545687598");
-    const Integer rootOfUnity0("56885989372043847");
-    const Integer rootOfUnity1("11962068968745897");
+const Integer rootOfUnity("41300615006751571");
+const Integer rootOfUnity0("22971456428937296");
+const Integer rootOfUnity1("18115707319199021");
 
-    const auto pp0 = std::make_shared<ILParams>(p0, Q, rootOfUnity0, 0, 0);
-    const auto pp1 = std::make_shared<ILParams>(p1, Q, rootOfUnity1, 0, 0);
-    const auto ppq = std::make_shared<ILParams>(pq, Q, rootOfUnity, 0, 0);
+
+const auto pp0 = std::make_shared<ILParams>(p0, Q, rootOfUnity0, 0, 0);
+const auto pp1 = std::make_shared<ILParams>(p1, Q, rootOfUnity1, 0, 0);
+const auto ppq = std::make_shared<ILParams>(pq, Q, rootOfUnity, 0, 0);
 
 }
 
@@ -43,8 +47,16 @@ Poly Tensor(const Poly &a, const Poly &b);
 RLWEKey TensorKey(const RLWEKey &skp, const RLWEKey &skq);
 RLWECiphertext TensorCt(const RLWECiphertext &ap, const RLWECiphertext &aq);
 
-Vector TracePqToP(const Vector &a, uint32_t p, uint32_t q, Integer Q);
+Vector TracePqToP(const Vector &a, usint p, usint q, Integer Q);
 Poly TracePqToP(const Poly &a);
+Integer TracePtoZ(const Poly &a);
+
+Poly ConstructF(const std::vector<usint> &f);
+Poly ConstructFP(const std::vector<usint> &f, std::shared_ptr<ILParams> params);
+Poly ConstructKey(Vector sk, std::shared_ptr<ILParams> params);
+Vector RetrieveLWECt(const RLWECiphertext &ct);
+
+BigInteger Resize(BigInteger x, BigInteger q, BigInteger Q);
 
 int main() {
 
@@ -56,9 +68,17 @@ int main() {
     auto dugpq = lbcrypto::DiscreteUniformGeneratorImpl<Vector>(par::pq);
     Vector sk = dugpq.GenerateVector(par::n);
     Vector a = dugpq.GenerateVector(par::n);
-    Integer b = 5;
+    usint m_plain = 1;
+    Integer b = m_plain;
+    std::vector<usint> f_plain(par::pq, 0);
+    f_plain[1] = 1;
 
-    for (uint32_t i = 0; i < par::n; i++) {
+    std::vector<usint> f_arr(par::pq, 0);
+    for (usint i = 0; i < par::pq; i++) {
+        f_arr[i] = f_plain[(par::pq - i) % par::pq];
+    }
+
+    for (usint i = 0; i < par::n; i++) {
         b += a[i] * sk[i];
     }
 
@@ -92,9 +112,9 @@ int main() {
     Scheme scheme_tensor({par::ppq, par::pq, par::Q, par::Bks});
 
     Poly skpq = Poly(par::ppq, COEFFICIENT, true);
-    for (uint32_t i = 0; i < par::n; i++) {
+    for (usint i = 0; i < par::n; i++) {
         if (i == 0) {
-            for (uint32_t j = 0; j < skpq.GetLength(); j++) {
+            for (usint j = 0; j < skpq.GetLength(); j++) {
                 skpq[j] = sk[i];
             }
         }
@@ -120,40 +140,86 @@ int main() {
     START_TIMER;
 
     auto tensor_ct = scheme_tensor.KeySwitch(ct, tensor_ksk);
-    
+
+    auto f = ConstructF(f_arr);
+    f.SetFormat(EVALUATION);
+    tensor_ct[0] *= f;
+    tensor_ct[1] *= f;
+
     END_TIMER;
 
     std::cout << "Stage 6: Trace" << std::endl;
 
     START_TIMER;
 
-    skpq.SetFormat(COEFFICIENT);
     auto cta = tensor_ct[0];
     auto ctb = tensor_ct[1];
     cta.SetFormat(COEFFICIENT);
     ctb.SetFormat(COEFFICIENT);
     cta = TracePqToP(cta);
     ctb = TracePqToP(ctb);
-    skpq = TracePqToP(skpq) * Integer(par::p1 - 1).ModInverse(par::Q);
+
+    auto skp = ConstructKey(sk, par::pp0);
+
     cta.SetFormat(EVALUATION);
     ctb.SetFormat(EVALUATION);
-    skpq.SetFormat(EVALUATION);
+    skp.SetFormat(EVALUATION);
 
-    auto plain = sc0.RLWEDecrypt({cta, ctb}, {skpq}, par::Q);
+    auto fp = ConstructFP(f_arr, par::pp0);
+    fp.SetFormat(EVALUATION);
+    auto inv0 = Integer(par::p1).ModInverse(par::p0).ConvertToInt();
+    auto gal_t0 = sc0.GaloisConjugate(sc0.skp, inv0);
+    ct0[0] *= fp;
+    ct0[1] *= fp;
+    auto ksk_extra0 = sc0.KeySwitchGen({gal_t0}, {skp});
+    auto ct_extra0 = sc0.GaloisConjugate(ct0, inv0);
+    ct_extra0 = sc0.KeySwitch(ct_extra0, ksk_extra0);
+
+    cta += ct_extra0[0];
+    ctb += ct_extra0[1];
+
+    auto skq = ConstructKey(sk, par::pp1);
+    skq.SetFormat(EVALUATION);
+    auto fq = ConstructFP(f_arr, par::pp1);
+    fq.SetFormat(EVALUATION);
+    auto inv1 = Integer(par::p0).ModInverse(par::p1).ConvertToInt();
+    auto gal_t1 = sc1.GaloisConjugate(sc1.skp, inv1);
+    ct1[0] *= fq;
+    ct1[1] *= fq;
+    auto ksk_extra1 = sc1.KeySwitchGen({gal_t1}, {skq});
+    auto ct_extra1 = sc1.GaloisConjugate(ct1, inv1);
+    ct_extra1 = sc1.KeySwitch(ct_extra1, ksk_extra1);
+
+    auto plain = sc0.RLWEDecrypt({cta, ctb}, {skp}, par::Q);
     sc0.ModSwitch(plain, par::t);
 
-    END_TIMER;
+    cta.SetFormat(COEFFICIENT);
+    ctb.SetFormat(COEFFICIENT);
 
-    std::cout << "decrypted: " << plain << std::endl;
+    ct_extra1[0].SetFormat(COEFFICIENT);
+    ct_extra1[1].SetFormat(COEFFICIENT);
+
+    auto lwect = RetrieveLWECt({cta, ctb}) + RetrieveLWECt(ct_extra1);
+    lwect[par::n] += par::Q / par::t;
+
+    Integer result = lwect[par::n];
+    for (usint i = 0; i < par::n; i++) {
+        result.ModSubEq(lwect[i].ModMulEq(sk[i], par::Q), par::Q);
+    }
+
+    std::cout << "decrypted: " << Resize(result, par::t, par::Q) << std::endl;
+    std::cout << "expected: " << Integer(f_plain[m_plain]).ModMul(par::pq, par::t) << std::endl;
+
+    END_TIMER;
 
     return 0;
 }
 
-Vector TracePqToP(const Vector &a, uint32_t p, uint32_t q, Integer Q) {
+Vector TracePqToP(const Vector &a, usint p, usint q, Integer Q) {
     Vector b(p - 1, Q);
-    for (uint32_t i = 1; i < p; i++) {
-        uint32_t t = ((q * i) % p - 1) * (q - 1);
-        for (uint32_t j = 1; j < q; j++) {
+    for (usint i = 1; i < p; i++) {
+        usint t = ((q * i) % p - 1) * (q - 1);
+        for (usint j = 1; j < q; j++) {
             b[i - 1].ModSubEq(a[t + j - 1], Q);
         }
     }
@@ -163,7 +229,7 @@ Vector TracePqToP(const Vector &a, uint32_t p, uint32_t q, Integer Q) {
 Poly TracePqToP(const Poly &a) {
     Vector b = TracePqToP(a.GetValues(), par::p0, par::p1, par::Q);
     Poly c(par::pp0, COEFFICIENT, true);
-    for (uint32_t i = 1; i < par::p0 - 1; i++) {
+    for (usint i = 1; i < par::p0 - 1; i++) {
         c[i] = b[i - 1].ModSub(b[par::p0 - 2], par::Q);
     }
     c[0] = par::Q - b[par::p0 - 2];
@@ -172,8 +238,8 @@ Poly TracePqToP(const Poly &a) {
 
 Poly Tensor(const Poly &a, const Poly &b) {
     Poly c(par::ppq, EVALUATION, true);
-    for (uint32_t i = 1; i < par::p0; i++) {
-        for (uint32_t j = 1; j < par::p1; j++) {
+    for (usint i = 1; i < par::p0; i++) {
+        for (usint j = 1; j < par::p1; j++) {
             c[(i - 1) * (par::p1 - 1) + j - 1] = a[i - 1].ModMul(b[j - 1], par::Q);
         }
     }
@@ -185,10 +251,10 @@ RLWEKey TensorKey(const RLWEKey &skp, const RLWEKey &skq) {
     auto skq0 = skq[0];
     Poly p1(par::pp0, EVALUATION, true);
     Poly q1(par::pp1, EVALUATION, true);
-    for (uint32_t i = 0; i < par::p0 - 1; i++) {
+    for (usint i = 0; i < par::p0 - 1; i++) {
         p1[i] = 1;
     }
-    for (uint32_t i = 0; i < par::p1 - 1; i++) {
+    for (usint i = 0; i < par::p1 - 1; i++) {
         q1[i] = 1;
     }
     RLWEKey sk;
@@ -206,4 +272,93 @@ RLWECiphertext TensorCt(const RLWECiphertext &ap, const RLWECiphertext &aq) {
     c.push_back(z * Tensor(ap[1], aq[0]));
     c.push_back(z * Tensor(ap[1], aq[1]));
     return c;
+}
+
+Integer TracePtoZ(const Poly &a) {
+    auto p = a.GetCyclotomicOrder();
+    Integer c = a[0].ModMul(p - 1, par::Q);
+    for (usint i = 1; i < p - 1; i++) {
+        c.ModSubEq(a[i], par::Q);
+    }
+    return c;
+}
+
+Poly ConstructF(const std::vector<usint> &f) {
+    Poly result(par::ppq, COEFFICIENT, true);
+    for (usint k = 0; k < result.GetLength(); k++) {
+        result[k] = f[0];
+    }
+    for (usint k = 1; k < f.size(); k++) {
+        usint i = k % par::p0;
+        usint j = k % par::p1;
+        if (i == 0) {
+            for (usint l = 1; l < par::p0; l++) {
+                result[(l - 1) * (par::p1 - 1) + j - 1].ModSubEq(f[k], par::Q);
+            }
+        } else if (j == 0) {
+            for (usint l = 1; l < par::p1; l++) {
+                result[(i - 1) * (par::p1 - 1) + l - 1].ModSubEq(f[k], par::Q);
+            }
+        } else {
+            result[(i - 1) * (par::p1 - 1) + j - 1].ModAddEq(f[k], par::Q);
+        }
+    }
+    return result;
+}
+
+Poly ConstructFP(const std::vector<usint> &f, std::shared_ptr<ILParams> params) {
+    Poly result(params, COEFFICIENT, true);
+    auto p = params->GetCyclotomicOrder();
+    Integer t;
+    for (usint k = 0; k < f.size(); k++) {
+        if (k % p == p - 1) {
+            t.ModAddEq(f[k], par::Q);
+        } else {
+            result[k % p].ModAddEq(f[k], par::Q);
+        }
+    }
+    for (usint k = 0; k < p - 1; k++) {
+        result[k].ModSubEq(t, par::Q);
+    }
+    return result;
+}
+
+Poly ConstructKey(Vector sk, std::shared_ptr<ILParams> params) {
+    Poly result(params, COEFFICIENT, true);
+    for (usint i = 0; i < sk.GetLength(); i++) {
+        result[i] = sk[i];
+    }
+    return result;
+}
+
+Vector RetrieveLWECt(const RLWECiphertext &ct) {
+    Vector result(par::n + 1);
+    Integer a_sum = 0;
+    auto &cta = ct[0];
+    usint p = cta.GetCyclotomicOrder();
+
+    for (usint i = 0; i < cta.GetLength(); i++) {
+        a_sum.ModAddEq(cta[i], par::Q);
+    }
+    for (usint i = 0; i < par::n; i++) {
+        if (i == 0) {
+            result[i] = cta[0].ModMul(p, par::Q).ModSub(a_sum, par::Q);
+        } else if (i == 1) {
+            result[i] = Integer(0).ModSub(a_sum, par::Q);
+        } else {
+            result[i] = cta[p - i].ModMul(p, par::Q).ModSub(a_sum, par::Q);
+        }
+    }
+
+    result[par::n] = TracePtoZ(ct[1]);
+    return result;
+}
+
+BigInteger Resize(BigInteger x, BigInteger q, BigInteger Q) {
+    BigInteger halfQ = Q / 2;
+    x = (x * q + halfQ) / Q;
+    if (x >= q) {
+        x -= q;
+    }
+    return x;
 }
