@@ -3,8 +3,6 @@
 
 #include "rlwe.h"
 
-
-
 template <typename Poly>
 SchemeImpl<Poly>::SchemeImpl(Params p, Vector sk) : params(p), ksk_galois(params.p), bk(sk.GetLength()) {
     if (sk.GetLength() != 0) {
@@ -116,7 +114,7 @@ void SchemeImpl<Poly>::ModSwitch(RLWECiphertext &ct, const Integer &q) {
 template <typename Poly>
 typename SchemeImpl<Poly>::RLWESwitchingKey SchemeImpl<Poly>::KeySwitchGen(const RLWEKey &sk, const RLWEKey &skN) {
     RLWESwitchingKey result;
-    for (Integer t = 1; t <= params.Q; t *= params.Bks) {
+    for (auto &t: params.g) {
         std::vector<RLWECiphertext> vec;
         for (auto &si : sk) {
             vec.push_back(RLWEEncrypt(t * si, skN, params.Q));
@@ -140,10 +138,10 @@ typename SchemeImpl<Poly>::RLWECiphertext SchemeImpl<Poly>::KeySwitch(const RLWE
         auto a = ct[i];
         a.SetFormat(COEFFICIENT);
         for (usint j = 0; j < l; ++j) {
+            auto &t = params.g[j];
             Poly a0(params.poly, COEFFICIENT, true);
             for (usint m = 0; m < a.GetLength(); ++m) {
-                a0[m] = a[m] % params.Bks;
-                a[m] /= params.Bks;
+                a0[m] = (a[m] / t) % params.Bks;
             }
             a0.SetFormat(EVALUATION);
             for (usint m = 0; m <= kN; ++m) {
@@ -161,7 +159,7 @@ typename SchemeImpl<Poly>::RGSWCiphertext SchemeImpl<Poly>::RGSWEncrypt(const Po
     }
     Poly s = sk[0];
     std::vector<RLWECiphertext> vc, vcs;
-    for (Integer t = 1; t <= params.Q; t *= params.Bks) {
+    for (auto &t : params.g) {
         RLWECiphertext c = RLWEEncrypt(t * m, sk, params.Q);
         RLWECiphertext cs = RLWEEncrypt(t * m * s, sk, params.Q);
         vc.push_back(c);
@@ -182,13 +180,12 @@ typename SchemeImpl<Poly>::RLWECiphertext SchemeImpl<Poly>::ExtMult(const RLWECi
     a.SetFormat(COEFFICIENT);
     b.SetFormat(COEFFICIENT);
     for (usint i = 0; i < l; ++i) {
+        auto &t = params.g[i];
         Poly ai(params.poly, COEFFICIENT, true);
         Poly bi(params.poly, COEFFICIENT, true);
         for (usint j = 0; j < a.GetLength(); ++j) {
-            ai[j] = a[j] % params.Bks;
-            bi[j] = b[j] % params.Bks;
-            a[j] /= params.Bks;
-            b[j] /= params.Bks;
+            ai[j] = (a[j] / t) % params.Bks;
+            bi[j] = (b[j] / t) % params.Bks;
         }
         ai.SetFormat(EVALUATION);
         bi.SetFormat(EVALUATION);

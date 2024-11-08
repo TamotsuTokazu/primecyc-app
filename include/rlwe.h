@@ -20,6 +20,16 @@ struct SchemeImpl {
         usint p;
         Integer Q;
         usint Bks;
+        std::vector<Integer> g;
+
+        Params(std::shared_ptr<ILParams> poly_, usint p_, Integer Q_, usint Bks_) : poly(poly_), p(p_), Q(Q_), Bks(Bks_), g() {
+            Integer pw = 1;
+            lbcrypto::BigInteger bQ(Q.ToString());
+            for (lbcrypto::BigInteger t = 1; t <= bQ; t *= Bks) {
+                g.push_back(pw);
+                pw.ModMulEq(Bks, Q);
+            }
+        }
     };
 
     Params params;

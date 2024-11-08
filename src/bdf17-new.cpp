@@ -24,11 +24,11 @@ using lbcrypto::BigInteger;
 namespace par {
 
 const Integer t("64");
-const usint n = 100;
+const usint n = 600;
 const usint p0 = 1153;
 const usint p1 = 1297;
 const usint pq = p0 * p1;
-const usint Bks = 1 << 4;
+const usint Bks = 1 << 8;
 const Integer Q("1152920977604149249");
 
 const Integer rootOfUnity("739447795444923848");
@@ -212,7 +212,6 @@ int main() {
 
     std::cout << "decrypted: " << Resize(result, par::t, par::Q) << std::endl;
     std::cout << "expected: " << f_plain[m_plain] << std::endl;
-
 
     return 0;
 }
