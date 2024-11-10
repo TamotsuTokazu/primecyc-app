@@ -28,10 +28,10 @@ set( CMAKE_CXX_FLAGS "${OpenFHE_CXX_FLAGS} -Ofast")
 add_definitions(-DPARALLEL)
 
 add_executable(bdf17 bdf17.cpp)
-target_link_libraries(bdf17 PRIVATE OPENFHEcore OPENFHEbinfhe)
+target_link_libraries(bdf17 PRIVATE OPENFHEcore_static OPENFHEbinfhe_static)
 
 add_executable(bdf17-new bdf17-new.cpp)
-target_link_libraries(bdf17-new PRIVATE OPENFHEcore OPENFHEbinfhe)
+target_link_libraries(bdf17-new PRIVATE OPENFHEcore_static OPENFHEbinfhe_static)
 
 add_executable(dkms23 dkms23.cpp)
-target_link_libraries(dkms23 PRIVATE OPENFHEcore OPENFHEbinfhe)
+target_link_libraries(dkms23 PRIVATE OPENFHEcore_static OPENFHEbinfhe_static)

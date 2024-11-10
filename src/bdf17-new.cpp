@@ -29,11 +29,11 @@ const usint p0 = 1153;
 const usint p1 = 1297;
 const usint pq = p0 * p1;
 const usint Bks = 1 << 8;
-const Integer Q("1152920977604149249");
+const Integer Q("576485048298018817");
 
-const Integer rootOfUnity("739447795444923848");
-const Integer rootOfUnity0("587824393635068054");
-const Integer rootOfUnity1("950015890856494149");
+const Integer rootOfUnity("537122826862086034");
+const Integer rootOfUnity0("397835389725933388");
+const Integer rootOfUnity1("440043149905686213");
 
 const auto pp0 = std::make_shared<ILParams>(p0, Q, rootOfUnity0, 0, 0);
 const auto pp1 = std::make_shared<ILParams>(p1, Q, rootOfUnity1, 0, 0);
@@ -52,7 +52,7 @@ Integer TracePtoZ(const Poly &a);
 Poly ConstructF(const std::vector<usint> &f);
 Poly ConstructFP(const std::vector<usint> &f, std::shared_ptr<ILParams> params);
 Poly ConstructKey(Vector sk, std::shared_ptr<ILParams> params);
-Vector RetrieveLWECt(const RLWECiphertext &ct);
+Vector RetrieveLWECt(const RLWECiphertext &ct, usint len);
 
 BigInteger Resize(BigInteger x, BigInteger q, BigInteger Q);
 
@@ -62,6 +62,25 @@ int main() {
 
     primecyc::RaderFFTNat<Vector>::m_enabled[par::p0] = true;
     primecyc::RaderFFTNat<Vector>::m_enabled[par::p1] = true;
+    primecyc::TensorFFTNat<Vector>::m_factor[par::pq] = {par::p0, par::p1};
+
+    Poly x10 = Poly(par::pp0, COEFFICIENT, true);
+    Poly x11 = Poly(par::pp1, COEFFICIENT, true);
+    x10[0] = par::Q - 1;
+    x11[0] = par::Q - 1;
+    x10[1] = 1;
+    x11[1] = 1;
+    x10.SetFormat(EVALUATION);
+    x11.SetFormat(EVALUATION);
+
+    Poly one0 = Poly(par::pp0, COEFFICIENT, true);
+    Poly one1 = Poly(par::pp1, COEFFICIENT, true);
+    one0[0] = 1;
+    one1[0] = 1;
+    one0.SetFormat(EVALUATION);
+    one1.SetFormat(EVALUATION);
+
+    Poly x1pq = Tensor(x10, x11);
 
     auto dugpq = lbcrypto::DiscreteUniformGeneratorImpl<Vector>(par::pq);
     Vector sk = dugpq.GenerateVector(par::n);
@@ -84,8 +103,8 @@ int main() {
 
     START_TIMER;
 
-    Scheme sc0{{par::pp0, par::p0, par::Q, par::Bks}, sk};
-    Scheme sc1{{par::pp1, par::p1, par::Q, par::Bks}, sk};
+    Scheme sc0{{par::pp0, par::p0, par::Q, par::Bks}, x10, sk};
+    Scheme sc1{{par::pp1, par::p1, par::Q, par::Bks}, x11, sk};
 
     END_TIMER;
 
@@ -93,12 +112,8 @@ int main() {
 
     START_TIMER;
 
-    auto mult = Integer(par::pq).ModInverse(par::t);
-
-    auto ct0 = sc0.Process(a, b, par::t, mult);
-    auto ct1 = sc1.Process(a, b, par::t, mult);
-
-    primecyc::TensorFFTNat<Vector>::m_factor[par::pq] = {par::p0, par::p1};
+    auto ct0 = sc0.Process(a, b, par::t);
+    auto ct1 = sc1.Process(a, b, par::t);
 
     END_TIMER;
 
@@ -109,21 +124,7 @@ int main() {
     auto ct = TensorCt(ct0, ct1);
     auto skk = TensorKey({sc0.skp}, {sc1.skp});
 
-    Scheme scheme_tensor({par::ppq, par::pq, par::Q, par::Bks});
-
-    Poly skpq = Poly(par::ppq, COEFFICIENT, true);
-    for (usint i = 0; i < par::n; i++) {
-        if (i == 0) {
-            for (usint j = 0; j < skpq.GetLength(); j++) {
-                skpq[j] = sk[i];
-            }
-        } else {
-            usint t = (i * par::p1 % par::p0 - 1) * (par::p1 - 1);
-            for (usint k = 1; k < par::p1; k++) {
-                skpq[t + k - 1].ModSubEq(sk[i], par::Q);
-            }
-        }
-    }
+    Scheme scheme_tensor({par::ppq, par::pq, par::Q, par::Bks}, x1pq);
 
     END_TIMER;
 
@@ -131,8 +132,9 @@ int main() {
 
     START_TIMER;
 
-    skpq.SetFormat(EVALUATION);
-    auto tensor_ksk = scheme_tensor.KeySwitchGen(skk, {skpq});
+    auto sk_tensor_0 = Tensor(sc0.skp, one1);
+
+    auto tensor_ksk0 = scheme_tensor.KeySwitchGen(skk, {sk_tensor_0});
 
     END_TIMER;
 
@@ -140,7 +142,7 @@ int main() {
 
     START_TIMER;
 
-    auto tensor_ct = scheme_tensor.KeySwitch(ct, tensor_ksk);
+    auto tensor_ct = scheme_tensor.KeySwitch(ct, tensor_ksk0);
 
     auto f = ConstructF(f_arr);
     f.SetFormat(EVALUATION);
@@ -157,51 +159,37 @@ int main() {
     auto ctb = tensor_ct[1];
     cta.SetFormat(COEFFICIENT);
     ctb.SetFormat(COEFFICIENT);
+
     cta = TracePqToP(cta);
     ctb = TracePqToP(ctb);
 
-    auto skp = ConstructKey(sk, par::pp0);
-
     cta.SetFormat(EVALUATION);
     ctb.SetFormat(EVALUATION);
-    skp.SetFormat(EVALUATION);
+
+    cta = sc0.GaloisConjugate(cta, par::p1 % par::p0);
+    ctb = sc0.GaloisConjugate(ctb, par::p1 % par::p0);
+
 
     auto fp = ConstructFP(f_arr, par::pp0);
     fp.SetFormat(EVALUATION);
-    auto inv0 = Integer(par::p1).ModInverse(par::p0).ConvertToInt();
-    auto gal_t0 = sc0.GaloisConjugate(sc0.skp, inv0);
-    ct0[0] *= fp;
-    ct0[1] *= fp;
-    auto ksk_extra0 = sc0.KeySwitchGen({gal_t0}, {skp});
-    auto ct_extra0 = sc0.GaloisConjugate(ct0, inv0);
-    ct_extra0 = sc0.KeySwitch(ct_extra0, ksk_extra0);
 
-    cta += ct_extra0[0];
-    ctb += ct_extra0[1];
+    cta += ct0[0] * fp;
+    ctb += ct0[1] * fp;
 
-    auto skq = ConstructKey(sk, par::pp1);
-    skq.SetFormat(EVALUATION);
-    auto fq = ConstructFP(f_arr, par::pp1);
-    fq.SetFormat(EVALUATION);
-    auto inv1 = Integer(par::p0).ModInverse(par::p1).ConvertToInt();
-    auto gal_t1 = sc1.GaloisConjugate(sc1.skp, inv1);
-    ct1[0] *= fq;
-    ct1[1] *= fq;
-    auto ksk_extra1 = sc1.KeySwitchGen({gal_t1}, {skq});
-    auto ct_extra1 = sc1.GaloisConjugate(ct1, inv1);
-    ct_extra1 = sc1.KeySwitch(ct_extra1, ksk_extra1);
-
-    auto plain = sc0.RLWEDecrypt({cta, ctb}, {skp}, par::Q);
-    sc0.ModSwitch(plain, par::t);
-
+    sc0.skp.SetFormat(COEFFICIENT);
     cta.SetFormat(COEFFICIENT);
     ctb.SetFormat(COEFFICIENT);
 
-    ct_extra1[0].SetFormat(COEFFICIENT);
-    ct_extra1[1].SetFormat(COEFFICIENT);
+    auto fq = ConstructFP(f_arr, par::pp1);
+    fq.SetFormat(EVALUATION);
+    ct1[0] *= fq;
+    ct1[1] *= fq;
+    ct1[0].SetFormat(COEFFICIENT);
+    ct1[1].SetFormat(COEFFICIENT);
 
-    auto lwect = RetrieveLWECt({cta, ctb}) + RetrieveLWECt(ct_extra1);
-    lwect[par::n].ModAddEq((par::Q / par::t).ModMul(mult, par::Q), par::Q);
+    auto lwect = RetrieveLWECt({cta, ctb}, par::n) + RetrieveLWECt(ct1, par::n);
+
+    lwect[par::n] += par::Q / par::t;
 
     END_TIMER;
 
@@ -209,6 +197,7 @@ int main() {
     for (usint i = 0; i < par::n; i++) {
         result.ModSubEq(lwect[i].ModMulEq(sk[i], par::Q), par::Q);
     }
+    result.ModMulEq(Integer(par::pq).ModInverse(par::Q), par::Q);
 
     std::cout << "decrypted: " << Resize(result, par::t, par::Q) << std::endl;
     std::cout << "expected: " << f_plain[m_plain] << std::endl;
@@ -332,8 +321,8 @@ Poly ConstructKey(Vector sk, std::shared_ptr<ILParams> params) {
     return result;
 }
 
-Vector RetrieveLWECt(const RLWECiphertext &ct) {
-    Vector result(par::n + 1);
+Vector RetrieveLWECt(const RLWECiphertext &ct, usint len) {
+    Vector result(len + 1);
     Integer a_sum = 0;
     auto &cta = ct[0];
     usint p = cta.GetCyclotomicOrder();
@@ -341,7 +330,8 @@ Vector RetrieveLWECt(const RLWECiphertext &ct) {
     for (usint i = 0; i < cta.GetLength(); i++) {
         a_sum.ModAddEq(cta[i], par::Q);
     }
-    for (usint i = 0; i < par::n; i++) {
+
+    for (usint i = 0; i < len; i++) {
         if (i == 0) {
             result[i] = cta[0].ModMul(p, par::Q).ModSub(a_sum, par::Q);
         } else if (i == 1) {
@@ -351,7 +341,7 @@ Vector RetrieveLWECt(const RLWECiphertext &ct) {
         }
     }
 
-    result[par::n] = TracePtoZ(ct[1]);
+    result[len] = TracePtoZ(ct[1]);
     return result;
 }
 

@@ -23,15 +23,24 @@ list(APPEND OPENFHE_INCLUDE_DIRS "${CMAKE_BINARY_DIR}/lib/openfhe-development/sr
 
 include_directories(${OPENFHE_INCLUDE_DIRS})
 set( CMAKE_EXE_LINKER_FLAGS ${OpenFHE_EXE_LINKER_FLAGS} )
-set( CMAKE_CXX_FLAGS ${OpenFHE_CXX_FLAGS})
+set( CMAKE_CXX_FLAGS "${OpenFHE_CXX_FLAGS} -Ofast -march=native -mtune=native -fno-schedule-insns -funroll-loops -ffinite-math-only")
 
 add_definitions(-DPARALLEL)
 
 add_executable(tensor tensor.cpp)
-target_link_libraries(tensor PRIVATE OPENFHEcore OPENFHEbinfhe)
+target_link_libraries(tensor PRIVATE OPENFHEcore_static OPENFHEbinfhe_static)
 
 add_executable(cyc-reduction cyc-reduction.cpp)
-target_link_libraries(cyc-reduction PRIVATE OPENFHEcore OPENFHEbinfhe)
+target_link_libraries(cyc-reduction PRIVATE OPENFHEcore_static OPENFHEbinfhe_static)
 
 add_executable(trans trans.cpp)
-target_link_libraries(trans PRIVATE OPENFHEcore OPENFHEbinfhe)
+target_link_libraries(trans PRIVATE OPENFHEcore_static OPENFHEbinfhe_static)
+
+add_executable(benchpoly benchpoly.cpp)
+target_link_libraries(benchpoly PRIVATE OPENFHEcore_static OPENFHEbinfhe_static)
+
+add_executable(scratch scratch.cpp)
+target_link_libraries(scratch PRIVATE OPENFHEcore_static OPENFHEbinfhe_static)
+
+add_executable(benchtransform benchtransform.cpp)
+target_link_libraries(benchtransform PRIVATE OPENFHEcore_static OPENFHEbinfhe_static)

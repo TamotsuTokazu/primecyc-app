@@ -38,8 +38,9 @@ struct SchemeImpl {
     std::vector<RGSWCiphertext> bk;
 
     Poly skp;
+    Poly x1;
 
-    SchemeImpl(Params p, Vector sk = {});
+    SchemeImpl(Params p, Poly x1_, Vector sk = {});
 
     Poly GaloisConjugate(const Poly &x, const usint &a);
 
@@ -60,7 +61,7 @@ struct SchemeImpl {
 
     RLWECiphertext ExtMult(const RLWECiphertext &ct, const RGSWCiphertext &ctGSW);
 
-    RLWECiphertext Process(Vector a, Integer b, Integer q_plain, Integer mult);
+    RLWECiphertext Process(Vector a, Integer b, Integer q_plain);
 };
 
 #include "rlwe-impl.h"

@@ -4,9 +4,14 @@
 #include "rlwe.h"
 
 template <typename Poly>
-SchemeImpl<Poly>::SchemeImpl(Params p, Vector sk) : params(p), ksk_galois(params.p), bk(sk.GetLength()) {
+SchemeImpl<Poly>::SchemeImpl(Params p, Poly x1_, Vector sk) : params(p), ksk_galois(params.p), bk(sk.GetLength()), x1(params.poly, EVALUATION, false) {
+    x1 = x1_;
     if (sk.GetLength() != 0) {
-        skp = Poly(lbcrypto::DiscreteGaussianGeneratorImpl<Vector>(), params.poly, COEFFICIENT);
+        // skp = Poly(lbcrypto::DiscreteGaussianGeneratorImpl<Vector>(), params.poly, COEFFICIENT);
+        skp = Poly(params.poly, COEFFICIENT, true);
+        for (usint i = 0; i < sk.GetLength(); i++) {
+            skp[i] = sk[i];
+        }
         sk.SetModulus(params.p);
         sk.ModEq(params.p);
         skp.SetFormat(EVALUATION);
@@ -69,7 +74,7 @@ typename SchemeImpl<Poly>::RLWECiphertext SchemeImpl<Poly>::RLWEEncrypt(const Po
     }
     Poly e(lbcrypto::DiscreteGaussianGeneratorImpl<Vector>(), params.poly, COEFFICIENT);
     e.SetFormat(EVALUATION);
-    result += e + m * (params.Q / q_plain);
+    result += e * x1 + m * (params.Q / q_plain);
     ct.push_back(std::move(result));
     return ct;
 }
@@ -196,20 +201,19 @@ typename SchemeImpl<Poly>::RLWECiphertext SchemeImpl<Poly>::ExtMult(const RLWECi
 }
 
 template <typename Poly>
-typename SchemeImpl<Poly>::RLWECiphertext SchemeImpl<Poly>::Process(Vector a, Integer b, Integer q_plain, Integer mult) {
+typename SchemeImpl<Poly>::RLWECiphertext SchemeImpl<Poly>::Process(Vector a, Integer b, Integer q_plain) {
     a.SetModulus(params.p);
     a.ModEq(params.p);
     b.ModEq(params.p);
-    Poly ca(params.poly, COEFFICIENT, true);
+    Poly ca(params.poly, EVALUATION, true);
     Poly cb(params.poly, COEFFICIENT, true);
     if (b == params.p - 1) {
         for (usint i = 0; i < params.p - 1; i++) {
-            cb[i] = params.Q - (params.Q / q_plain).ModMul(mult, params.Q);
+            cb[i] = params.Q - params.Q / q_plain;
         }
     } else {
-        cb[b.ConvertToInt()] = (params.Q / q_plain).ModMul(mult, params.Q);
+        cb[b.ConvertToInt()] = params.Q / q_plain;
     }
-    ca.SetFormat(EVALUATION);
     cb.SetFormat(EVALUATION);
     RLWECiphertext c{ca, cb};
     Integer t = 1;

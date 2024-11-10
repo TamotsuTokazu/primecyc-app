@@ -7,7 +7,7 @@ t = 2 ** 6
 
 m = lcm(p0 * p1 * (p0 - 1) * (p1 - 1), t)
 
-N = 2 ** 60
+N = 2 ** 59
 N = (N // m) * m + 1
 while not is_prime(N):
     N += m
@@ -18,7 +18,7 @@ const usint n = {n};
 const usint p0 = {p0};
 const usint p1 = {p1};
 const usint pq = p0 * p1;
-const usint Bks = 1 << 4;
+const usint Bks = 1 << 8;
 const Integer Q("{N}");
 ''')
 
