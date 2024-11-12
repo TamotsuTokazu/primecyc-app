@@ -8,11 +8,10 @@
 #define END_TIMER std::cout << "Time: " << (std::chrono::duration<double>(std::chrono::system_clock::now() - start).count()) << std::endl
 
 using Poly = lbcrypto::NativePoly;
-using Scheme = SchemeImpl<Poly>;
+using Scheme = BDF17SchemeImpl<Poly>;
 using Vector = Scheme::Vector;
 using Integer = Scheme::Integer;
 using ILParams = Scheme::ILParams;
-using Params = Scheme::Params;
 
 using RLWECiphertext = Scheme::RLWECiphertext;
 using RLWEKey = Scheme::RLWEKey;
@@ -23,7 +22,7 @@ using lbcrypto::BigInteger;
 
 namespace par {
 
-const Integer t("64");
+const Integer t("8 ");
 const usint n = 600;
 const usint p0 = 1153;
 const usint p1 = 1297;
@@ -83,124 +82,125 @@ int main() {
     Poly x1pq = Tensor(x10, x11);
 
     auto dugpq = lbcrypto::DiscreteUniformGeneratorImpl<Vector>(par::pq);
-    Vector sk = dugpq.GenerateVector(par::n);
-    Vector a = dugpq.GenerateVector(par::n);
-    usint m_plain = 1;
-    Integer b = m_plain;
-    std::vector<usint> f_plain(par::pq, 0);
-    f_plain[1] = 1;
 
-    std::vector<usint> f_arr(par::pq, 0);
-    for (usint i = 0; i < par::pq; i++) {
-        f_arr[i] = f_plain[(par::pq - i) % par::pq];
-    }
-
-    for (usint i = 0; i < par::n; i++) {
-        b += a[i] * sk[i];
-    }
-
-    std::cout << "Stage 1: Prime KeyGen" << std::endl;
+    std::cout << "Stage 0: KeyGen" << std::endl;
 
     START_TIMER;
 
+    Vector sk = dugpq.GenerateVector(par::n);
     Scheme sc0{{par::pp0, par::p0, par::Q, par::Bks}, x10, sk};
     Scheme sc1{{par::pp1, par::p1, par::Q, par::Bks}, x11, sk};
 
-    END_TIMER;
-
-    std::cout << "Stage 2: Prime Eval" << std::endl;
-
-    START_TIMER;
-
-    auto ct0 = sc0.Process(a, b, par::t);
-    auto ct1 = sc1.Process(a, b, par::t);
-
-    END_TIMER;
-
-    std::cout << "Stage 3: Tensor" << std::endl;
-
-    START_TIMER;
-
-    auto ct = TensorCt(ct0, ct1);
-    auto skk = TensorKey({sc0.skp}, {sc1.skp});
-
     Scheme scheme_tensor({par::ppq, par::pq, par::Q, par::Bks}, x1pq);
-
-    END_TIMER;
-
-    std::cout << "Stage 4: Tensor Switching KeyGen" << std::endl;
-
-    START_TIMER;
-
+    auto skk = TensorKey({sc0.skp}, {sc1.skp});
     auto sk_tensor_0 = Tensor(sc0.skp, one1);
-
     auto tensor_ksk0 = scheme_tensor.KeySwitchGen(skk, {sk_tensor_0});
 
     END_TIMER;
 
-    std::cout << "Stage 5: Tensored Key Switching" << std::endl;
+    for (usint numRound = 0; numRound < 10; numRound++) {
 
-    START_TIMER;
+        Vector a = dugpq.GenerateVector(par::n);
+        usint m_plain = numRound;
+        Integer b = m_plain * (usint)(0.5 + par::pq / par::t.ConvertToDouble());
+        std::vector<usint> f_plain(par::t.ConvertToInt(), 0);
+        for (usint i = 0; i < par::t.ConvertToInt(); i++) {
+            f_plain[i] = i & 1;
+        }
 
-    auto tensor_ct = scheme_tensor.KeySwitch(ct, tensor_ksk0);
+        std::vector<usint> f_ct(par::pq, 0);
+        for (usint i = 0; i < par::pq; i++) {
+            f_ct[i] = f_plain[(usint)(0.5 + par::t.ConvertToDouble() * i / par::pq) % par::t.ConvertToInt()];
+        }
+        for (usint i = 1, j = par::pq - 1; i < j; i++, j--) {
+            std::swap(f_ct[i], f_ct[j]);
+        }
 
-    auto f = ConstructF(f_arr);
-    f.SetFormat(EVALUATION);
-    tensor_ct[0] *= f;
-    tensor_ct[1] *= f;
+        for (usint i = 0; i < par::n; i++) {
+            b += a[i] * sk[i];
+        }
 
-    END_TIMER;
+        std::cout << "Stage 1: Prime Eval" << std::endl;
 
-    std::cout << "Stage 6: Trace" << std::endl;
+        START_TIMER;
 
-    START_TIMER;
+        auto ct0 = sc0.Process(a, b, par::t);
+        auto ct1 = sc1.Process(a, b, par::t);
 
-    auto cta = tensor_ct[0];
-    auto ctb = tensor_ct[1];
-    cta.SetFormat(COEFFICIENT);
-    ctb.SetFormat(COEFFICIENT);
+        END_TIMER;
 
-    cta = TracePqToP(cta);
-    ctb = TracePqToP(ctb);
+        std::cout << "Stage 2: Tensor" << std::endl;
 
-    cta.SetFormat(EVALUATION);
-    ctb.SetFormat(EVALUATION);
+        START_TIMER;
 
-    cta = sc0.GaloisConjugate(cta, par::p1 % par::p0);
-    ctb = sc0.GaloisConjugate(ctb, par::p1 % par::p0);
+        auto ct = TensorCt(ct0, ct1);
 
+        END_TIMER;
 
-    auto fp = ConstructFP(f_arr, par::pp0);
-    fp.SetFormat(EVALUATION);
+        std::cout << "Stage 3: Tensored Key Switching" << std::endl;
 
-    cta += ct0[0] * fp;
-    ctb += ct0[1] * fp;
+        START_TIMER;
 
-    sc0.skp.SetFormat(COEFFICIENT);
-    cta.SetFormat(COEFFICIENT);
-    ctb.SetFormat(COEFFICIENT);
+        auto tensor_ct = scheme_tensor.KeySwitch(ct, tensor_ksk0);
 
-    auto fq = ConstructFP(f_arr, par::pp1);
-    fq.SetFormat(EVALUATION);
-    ct1[0] *= fq;
-    ct1[1] *= fq;
-    ct1[0].SetFormat(COEFFICIENT);
-    ct1[1].SetFormat(COEFFICIENT);
+        END_TIMER;
 
-    auto lwect = RetrieveLWECt({cta, ctb}, par::n) + RetrieveLWECt(ct1, par::n);
+        std::cout << "Stage 4: Function Extraction" << std::endl;
 
-    lwect[par::n] += par::Q / par::t;
+        START_TIMER;
 
-    END_TIMER;
+        auto f = ConstructF(f_ct);
+        f.SetFormat(EVALUATION);
+        tensor_ct[0] *= f;
+        tensor_ct[1] *= f;
 
-    Integer result = lwect[par::n];
-    for (usint i = 0; i < par::n; i++) {
-        result.ModSubEq(lwect[i].ModMulEq(sk[i], par::Q), par::Q);
+        auto cta = tensor_ct[0];
+        auto ctb = tensor_ct[1];
+        cta.SetFormat(COEFFICIENT);
+        ctb.SetFormat(COEFFICIENT);
+
+        cta = TracePqToP(cta);
+        ctb = TracePqToP(ctb);
+
+        cta.SetFormat(EVALUATION);
+        ctb.SetFormat(EVALUATION);
+
+        cta = sc0.GaloisConjugate(cta, par::p1 % par::p0);
+        ctb = sc0.GaloisConjugate(ctb, par::p1 % par::p0);
+
+        auto fp = ConstructFP(f_ct, par::pp0);
+        fp.SetFormat(EVALUATION);
+
+        cta += ct0[0] * fp;
+        ctb += ct0[1] * fp;
+
+        sc0.skp.SetFormat(COEFFICIENT);
+        cta.SetFormat(COEFFICIENT);
+        ctb.SetFormat(COEFFICIENT);
+
+        auto fq = ConstructFP(f_ct, par::pp1);
+        fq.SetFormat(EVALUATION);
+        ct1[0] *= fq;
+        ct1[1] *= fq;
+        ct1[0].SetFormat(COEFFICIENT);
+        ct1[1].SetFormat(COEFFICIENT);
+
+        auto lwect = RetrieveLWECt({cta, ctb}, par::n) + RetrieveLWECt(ct1, par::n);
+
+        lwect[par::n] += par::Q / par::t;
+
+        END_TIMER;
+
+        Integer result = lwect[par::n];
+        for (usint i = 0; i < par::n; i++) {
+            result.ModSubEq(lwect[i].ModMulEq(sk[i], par::Q), par::Q);
+        }
+        result.ModMulEq(Integer(par::pq).ModInverse(par::Q), par::Q);
+
+        std::cout << "decrypted: " << Resize(result, par::t, par::Q) << std::endl;
+        std::cout << "expected: " << f_plain[m_plain] << std::endl;
+
     }
-    result.ModMulEq(Integer(par::pq).ModInverse(par::Q), par::Q);
-
-    std::cout << "decrypted: " << Resize(result, par::t, par::Q) << std::endl;
-    std::cout << "expected: " << f_plain[m_plain] << std::endl;
 
     return 0;
 }

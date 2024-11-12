@@ -2,37 +2,21 @@
 #define _RLWE_IMPL_H_
 
 template <typename Poly>
-SchemeImpl<Poly>::SchemeImpl(Params p, Poly x1_, Vector sk) : params(p), ksk_galois(params.p), bk(sk.GetLength()), x1(params.poly, EVALUATION, false) {
-    x1 = x1_;
-    if (sk.GetLength() != 0) {
-        // skp = Poly(lbcrypto::DiscreteGaussianGeneratorImpl<Vector>(), params.poly, COEFFICIENT);
-        skp = Poly(params.poly, COEFFICIENT, true);
-        for (usint i = 0; i < sk.GetLength(); i++) {
-            skp[i] = sk[i];
-        }
-        sk.SetModulus(params.p);
-        sk.ModEq(params.p);
-        skp.SetFormat(EVALUATION);
+SchemeImpl<Poly>::SchemeImpl(Params p, bool keygen) : params(p) {
+    if (keygen) {
+        skp = Poly(lbcrypto::DiscreteGaussianGeneratorImpl<Vector>(), params.poly, COEFFICIENT);
+    }
+}
+
+template <typename Poly>
+void SchemeImpl<Poly>::GaloisKeyGen() {
+    ksk_galois.resize(params.p);
+    skp.SetFormat(EVALUATION);
 #pragma omp parallel for num_threads(lbcrypto::OpenFHEParallelControls.GetThreadLimit(params.p - 2))
-        for (usint i = 2; i < params.p; i++) {
-            auto skpi = GaloisConjugate(skp, i);
-            auto ksk = KeySwitchGen({skpi}, {skp});
-            ksk_galois[i] = ksk;
-        }
-#pragma omp parallel for num_threads(lbcrypto::OpenFHEParallelControls.GetThreadLimit(sk.GetLength()))
-        for (usint i = 0; i < sk.GetLength(); i++) {
-            Poly m(params.poly, COEFFICIENT, true);
-            auto t = sk[i].ConvertToInt();
-            if (t < params.p - 1) {
-                m[sk[i].ConvertToInt()] = 1;
-            } else {
-                for (usint j = 0; j < params.p - 1; j++) {
-                    m[j] = Integer(params.poly->GetModulus() - 1);
-                }
-            }
-            m.SetFormat(EVALUATION);
-            bk[i] = RGSWEncrypt(m, {skp});
-        }
+    for (usint i = 2; i < params.p; i++) {
+        auto skpi = GaloisConjugate(skp, i);
+        auto ksk = KeySwitchGen({skpi}, {skp});
+        ksk_galois[i] = ksk;
     }
 }
 
@@ -67,13 +51,26 @@ typename SchemeImpl<Poly>::RLWECiphertext SchemeImpl<Poly>::RLWEEncrypt(const Po
     Poly result(params.poly, EVALUATION, true);
     for (usint i = 0; i < k; ++i) {
         Poly a(dug, params.poly, EVALUATION);
+        a *= 0;
         result += a * sk[i];
         ct.push_back(std::move(a));
     }
     Poly e(lbcrypto::DiscreteGaussianGeneratorImpl<Vector>(), params.poly, COEFFICIENT);
     e.SetFormat(EVALUATION);
-    result += e * x1 + m * (params.Q / q_plain);
+    e *= 0;
+    result += e + m * (params.Q / q_plain);
     ct.push_back(std::move(result));
+    return ct;
+}
+
+template <typename Poly>
+typename SchemeImpl<Poly>::RLWEGadgetCiphertext SchemeImpl<Poly>::RLWEGadgetEncrypt(const Poly &m, const RLWEKey &sk, const Integer &q_plain) {
+    RLWEGadgetCiphertext ct(params.g.size());
+#pragma omp parallel for num_threads(lbcrypto::OpenFHEParallelControls.GetThreadLimit(params.g.size()))
+    for (usint i = 0; i < params.g.size(); ++i) {
+        const auto &t = params.g[i];
+        ct[i] = RLWEEncrypt(t * m, sk, q_plain);
+    }
     return ct;
 }
 
@@ -117,12 +114,8 @@ void SchemeImpl<Poly>::ModSwitch(RLWECiphertext &ct, const Integer &q) {
 template <typename Poly>
 typename SchemeImpl<Poly>::RLWESwitchingKey SchemeImpl<Poly>::KeySwitchGen(const RLWEKey &sk, const RLWEKey &skN) {
     RLWESwitchingKey result;
-    for (auto &t: params.g) {
-        std::vector<RLWECiphertext> vec;
-        for (auto &si : sk) {
-            vec.push_back(RLWEEncrypt(t * si, skN, params.Q));
-        }
-        result.push_back(std::move(vec));
+    for (auto &si : sk) {
+        result.push_back(RLWEGadgetEncrypt(si, skN, params.Q));
     }
     return result;
 }
@@ -131,13 +124,15 @@ template <typename Poly>
 typename SchemeImpl<Poly>::RLWECiphertext SchemeImpl<Poly>::KeySwitch(const RLWECiphertext &ct, const RLWESwitchingKey &K) {
     usint k = ct.size() - 1;
     usint kN = K[0][0].size() - 1;
-    usint l = K.size();
+    usint l = params.g.size();
     RLWECiphertext result(kN + 1);
     for (usint i = 0; i <= kN; ++i) {
         result[i] = Poly(params.poly, EVALUATION, true);
     }
     result[kN] += ct[k];
     for (usint i = 0; i < k; ++i) {
+        auto t = result[kN];
+        t.SetFormat(COEFFICIENT);
         auto a = ct[i];
         std::vector<Poly> lista(l);
         a.SetFormat(COEFFICIENT);
@@ -151,9 +146,10 @@ typename SchemeImpl<Poly>::RLWECiphertext SchemeImpl<Poly>::KeySwitch(const RLWE
             a0.SetFormat(EVALUATION);
             lista[j] = a0;
         }
+
         for (usint j = 0; j < l; ++j) {
             for (usint m = 0; m <= kN; ++m) {
-                result[m] -= lista[j] * K[j][i][m];
+                result[m] -= lista[j] * K[i][j][m];
             }
         }
     }
@@ -166,14 +162,33 @@ typename SchemeImpl<Poly>::RGSWCiphertext SchemeImpl<Poly>::RGSWEncrypt(const Po
         throw std::runtime_error("RGSW encryption requires a single key");
     }
     Poly s = sk[0];
-    std::vector<RLWECiphertext> vc, vcs;
-    for (auto &t : params.g) {
-        RLWECiphertext c = RLWEEncrypt(t * m, sk, params.Q);
-        RLWECiphertext cs = RLWEEncrypt(t * m * s, sk, params.Q);
-        vc.push_back(c);
-        vcs.push_back(cs);
+    return std::make_pair(RLWEGadgetEncrypt(m * s, sk, params.Q), RLWEGadgetEncrypt(m, sk, params.Q));
+}
+
+template <typename Poly>
+typename SchemeImpl<Poly>::RLWECiphertext SchemeImpl<Poly>::Mult(Poly a, RLWEGadgetCiphertext ct) {
+    usint kN = ct[0].size() - 1;
+    usint l = params.g.size();
+    a.SetFormat(COEFFICIENT);
+    RLWECiphertext result(kN + 1);
+    for (usint i = 0; i <= kN; ++i) {
+        result[i] = Poly(params.poly, EVALUATION, true);
+        std::vector<Poly> delta(l);
+#pragma omp parallel for num_threads(lbcrypto::OpenFHEParallelControls.GetThreadLimit(l))
+        for (usint j = 0; j < l; ++j) {
+            const auto &t = params.g[j];
+            Poly a0(params.poly, COEFFICIENT, true);
+            for (usint m = 0; m < a.GetLength(); ++m) {
+                a0[m] = (a[m] / t) % params.Bks;
+            }
+            a0.SetFormat(EVALUATION);
+            delta[j] = a0 * ct[j][i];
+        }
+        for (usint j = 0; j < l; ++j) {
+            result[i] += delta[j];
+        }
     }
-    return std::make_pair(std::move(vcs), std::move(vc));
+    return result;
 }
 
 template <typename Poly>
@@ -210,7 +225,59 @@ typename SchemeImpl<Poly>::RLWECiphertext SchemeImpl<Poly>::ExtMult(const RLWECi
 }
 
 template <typename Poly>
-typename SchemeImpl<Poly>::RLWECiphertext SchemeImpl<Poly>::Process(Vector a, Integer b, Integer q_plain) {
+BDF17SchemeImpl<Poly>::BDF17SchemeImpl(Params p, Poly x1_, Vector sk) : SchemeImpl<Poly>(p, false), bk(sk.GetLength()), x1(p.poly, EVALUATION, false) {
+    x1 = x1_;
+    sk.SetModulus(p.p);
+    sk.ModEq(p.p);
+    if (sk.GetLength() != 0) {
+        this->skp = Poly(p.poly, COEFFICIENT, true);
+        for (usint i = 0; i < sk.GetLength(); i++) {
+            this->skp[i] = sk[i];
+        }
+        this->GaloisKeyGen();
+#pragma omp parallel for num_threads(lbcrypto::OpenFHEParallelControls.GetThreadLimit(sk.GetLength()))
+        for (usint i = 0; i < sk.GetLength(); i++) {
+            Poly m(p.poly, COEFFICIENT, true);
+            auto t = sk[i].ConvertToInt();
+            if (t < p.p - 1) {
+                m[sk[i].ConvertToInt()] = 1;
+            } else {
+                for (usint j = 0; j < p.p - 1; j++) {
+                    m[j] = Integer(p.poly->GetModulus() - 1);
+                }
+            }
+            m.SetFormat(EVALUATION);
+            bk[i] = this->RGSWEncrypt(m, {this->skp});
+        }
+    }
+}
+
+template <typename Poly>
+typename BDF17SchemeImpl<Poly>::RLWECiphertext BDF17SchemeImpl<Poly>::RLWEEncrypt(const Poly &m, const RLWEKey &sk, const Integer &q_plain) {
+    const auto &params = this->params;
+
+    usint k = sk.size();
+    lbcrypto::DiscreteUniformGeneratorImpl<Vector> dug;
+    RLWECiphertext ct;
+
+    Poly result(params.poly, EVALUATION, true);
+    for (usint i = 0; i < k; ++i) {
+        Poly a(dug, params.poly, EVALUATION);
+        a *= 0;
+        result += a * sk[i];
+        ct.push_back(std::move(a));
+    }
+    Poly e(lbcrypto::DiscreteGaussianGeneratorImpl<Vector>(), params.poly, COEFFICIENT);
+    e.SetFormat(EVALUATION);
+    e *= 0;
+    result += e * x1 + m * (params.Q / q_plain);
+    ct.push_back(std::move(result));
+    return ct;
+}
+
+template <typename Poly>
+typename BDF17SchemeImpl<Poly>::RLWECiphertext BDF17SchemeImpl<Poly>::Process(Vector a, Integer b, Integer q_plain) {
+    const auto &params = this->params;
     a.SetModulus(params.p);
     a.ModEq(params.p);
     b.ModEq(params.p);
@@ -231,16 +298,16 @@ typename SchemeImpl<Poly>::RLWECiphertext SchemeImpl<Poly>::Process(Vector a, In
         if (a[i] != params.p) {
             t.ModMulEq(a[i].ModInverse(params.p), params.p);
             if (t != 1) {
-                c = GaloisConjugate(c, t.ConvertToInt());
-                c = KeySwitch(c, ksk_galois[t.ConvertToInt()]);
+                c = this->GaloisConjugate(c, t.ConvertToInt());
+                c = this->KeySwitch(c, this->ksk_galois[t.ConvertToInt()]);
             }
-            c = ExtMult(c, bk[i]);
+            c = this->ExtMult(c, bk[i]);
             t = a[i];
         }
     }
     if (t != 1) {
-        c = GaloisConjugate(c, t.ConvertToInt());
-        c = KeySwitch(c, ksk_galois[t.ConvertToInt()]);
+        c = this->GaloisConjugate(c, t.ConvertToInt());
+        c = this->KeySwitch(c, this->ksk_galois[t.ConvertToInt()]);
     }
     return c;
 }

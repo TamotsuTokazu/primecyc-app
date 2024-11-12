@@ -1,4 +1,4 @@
-p0, p1 = 73, 97
+p0, p1 = 1153, 1297
 assert is_prime(p0) and is_prime(p1)
 
 n = max(nn for nn in [1, 10, 100, 600] if nn < p0 - 2)
