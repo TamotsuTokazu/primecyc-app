@@ -23,7 +23,7 @@ list(APPEND OPENFHE_INCLUDE_DIRS "${CMAKE_BINARY_DIR}/lib/openfhe-development/sr
 
 include_directories(${OPENFHE_INCLUDE_DIRS})
 set( CMAKE_EXE_LINKER_FLAGS ${OpenFHE_EXE_LINKER_FLAGS} )
-set( CMAKE_CXX_FLAGS "${OpenFHE_CXX_FLAGS} -Ofast")
+set( CMAKE_CXX_FLAGS "${OpenFHE_CXX_FLAGS} -Ofast -march=native -mtune=native -fno-schedule-insns -funroll-loops -ffinite-math-only -mavx")
 
 add_definitions(-DPARALLEL)
 

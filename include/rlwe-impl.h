@@ -1,8 +1,6 @@
 #ifndef _RLWE_IMPL_H_
 #define _RLWE_IMPL_H_
 
-#include "rlwe.h"
-
 template <typename Poly>
 SchemeImpl<Poly>::SchemeImpl(Params p, Poly x1_, Vector sk) : params(p), ksk_galois(params.p), bk(sk.GetLength()), x1(params.poly, EVALUATION, false) {
     x1 = x1_;
@@ -141,16 +139,21 @@ typename SchemeImpl<Poly>::RLWECiphertext SchemeImpl<Poly>::KeySwitch(const RLWE
     result[kN] += ct[k];
     for (usint i = 0; i < k; ++i) {
         auto a = ct[i];
+        std::vector<Poly> lista(l);
         a.SetFormat(COEFFICIENT);
+#pragma omp parallel for num_threads(lbcrypto::OpenFHEParallelControls.GetThreadLimit(l))
         for (usint j = 0; j < l; ++j) {
-            auto &t = params.g[j];
+            const auto &t = params.g[j];
             Poly a0(params.poly, COEFFICIENT, true);
             for (usint m = 0; m < a.GetLength(); ++m) {
                 a0[m] = (a[m] / t) % params.Bks;
             }
             a0.SetFormat(EVALUATION);
+            lista[j] = a0;
+        }
+        for (usint j = 0; j < l; ++j) {
             for (usint m = 0; m <= kN; ++m) {
-                result[m] -= a0 * K[j][i][m];
+                result[m] -= lista[j] * K[j][i][m];
             }
         }
     }
@@ -184,8 +187,10 @@ typename SchemeImpl<Poly>::RLWECiphertext SchemeImpl<Poly>::ExtMult(const RLWECi
     Poly a = ct[0].Negate(), b = ct[1];
     a.SetFormat(COEFFICIENT);
     b.SetFormat(COEFFICIENT);
+    std::vector<Poly> deltaa(l), deltab(l);
+#pragma omp parallel for num_threads(lbcrypto::OpenFHEParallelControls.GetThreadLimit(l))
     for (usint i = 0; i < l; ++i) {
-        auto &t = params.g[i];
+        const auto &t = params.g[i];
         Poly ai(params.poly, COEFFICIENT, true);
         Poly bi(params.poly, COEFFICIENT, true);
         for (usint j = 0; j < a.GetLength(); ++j) {
@@ -194,8 +199,12 @@ typename SchemeImpl<Poly>::RLWECiphertext SchemeImpl<Poly>::ExtMult(const RLWECi
         }
         ai.SetFormat(EVALUATION);
         bi.SetFormat(EVALUATION);
-        ra += ai * ctGSW.first[i][0] + bi * ctGSW.second[i][0];
-        rb += ai * ctGSW.first[i][1] + bi * ctGSW.second[i][1];
+        deltaa[i] = ai * ctGSW.first[i][0] + bi * ctGSW.second[i][0];
+        deltab[i] = ai * ctGSW.first[i][1] + bi * ctGSW.second[i][1];
+    }
+    for (usint i = 0; i < l; i++) {
+        ra += deltaa[i];
+        rb += deltab[i];
     }
     return {std::move(ra), std::move(rb)};
 }
