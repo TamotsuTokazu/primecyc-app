@@ -4,13 +4,13 @@
 template <typename Poly>
 BDF17SchemeImpl<Poly>::BDF17SchemeImpl(Params p, Poly x1_, Vector sk) : SchemeImpl<Poly>(p, false), bk(sk.GetLength()), x1(p.poly, EVALUATION, false) {
     x1 = x1_;
-    sk.SetModulus(p.p);
-    sk.ModEq(p.p);
     if (sk.GetLength() != 0) {
         this->skp = Poly(p.poly, COEFFICIENT, true);
         for (usint i = 0; i < sk.GetLength(); i++) {
             this->skp[i] = sk[i];
         }
+        sk.SetModulus(p.p);
+        sk.ModEq(p.p);
         this->GaloisKeyGen();
 #pragma omp parallel for num_threads(lbcrypto::OpenFHEParallelControls.GetThreadLimit(sk.GetLength()))
         for (usint i = 0; i < sk.GetLength(); i++) {
@@ -40,13 +40,11 @@ typename BDF17SchemeImpl<Poly>::RLWECiphertext BDF17SchemeImpl<Poly>::RLWEEncryp
     Poly result(params.poly, EVALUATION, true);
     for (usint i = 0; i < k; ++i) {
         Poly a(dug, params.poly, EVALUATION);
-        a *= 0;
         result += a * sk[i];
         ct.push_back(std::move(a));
     }
     Poly e(lbcrypto::DiscreteGaussianGeneratorImpl<Vector>(), params.poly, COEFFICIENT);
     e.SetFormat(EVALUATION);
-    e *= 0;
     result += e * x1 + m * (params.Q / q_plain);
     ct.push_back(std::move(result));
     return ct;

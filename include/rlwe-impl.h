@@ -51,13 +51,11 @@ typename SchemeImpl<Poly>::RLWECiphertext SchemeImpl<Poly>::RLWEEncrypt(const Po
     Poly result(params.poly, EVALUATION, true);
     for (usint i = 0; i < k; ++i) {
         Poly a(dug, params.poly, EVALUATION);
-        a *= 0;
         result += a * sk[i];
         ct.push_back(std::move(a));
     }
     Poly e(lbcrypto::DiscreteGaussianGeneratorImpl<Vector>(), params.poly, COEFFICIENT);
     e.SetFormat(EVALUATION);
-    e *= 0;
     result += e + m * (params.Q / q_plain);
     ct.push_back(std::move(result));
     return ct;

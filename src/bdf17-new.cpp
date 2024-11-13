@@ -22,7 +22,7 @@ using lbcrypto::BigInteger;
 
 namespace par {
 
-const Integer t("8 ");
+const Integer t("64");
 const usint n = 600;
 const usint p0 = 1153;
 const usint p1 = 1297;
@@ -98,11 +98,11 @@ int main() {
 
     END_TIMER;
 
-    for (usint numRound = 0; numRound < 10; numRound++) {
+    for (usint numRound = 0; numRound < 7; numRound++) {
 
         Vector a = dugpq.GenerateVector(par::n);
         usint m_plain = numRound;
-        Integer b = m_plain * (usint)(0.5 + par::pq / par::t.ConvertToDouble());
+        Integer b = (usint)(0.5 + par::pq / par::t.ConvertToDouble() * m_plain) % par::pq;
         std::vector<usint> f_plain(par::t.ConvertToInt(), 0);
         for (usint i = 0; i < par::t.ConvertToInt(); i++) {
             f_plain[i] = i & 1;
@@ -112,6 +112,7 @@ int main() {
         for (usint i = 0; i < par::pq; i++) {
             f_ct[i] = f_plain[(usint)(0.5 + par::t.ConvertToDouble() * i / par::pq) % par::t.ConvertToInt()];
         }
+
         for (usint i = 1, j = par::pq - 1; i < j; i++, j--) {
             std::swap(f_ct[i], f_ct[j]);
         }
@@ -174,7 +175,6 @@ int main() {
         cta += ct0[0] * fp;
         ctb += ct0[1] * fp;
 
-        sc0.skp.SetFormat(COEFFICIENT);
         cta.SetFormat(COEFFICIENT);
         ctb.SetFormat(COEFFICIENT);
 
