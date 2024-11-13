@@ -81,15 +81,14 @@ int main() {
 
     Poly x1pq = Tensor(x10, x11);
 
-    auto dugpq = lbcrypto::DiscreteUniformGeneratorImpl<Vector>(par::pq);
-
     std::cout << "Stage 0: KeyGen" << std::endl;
 
     START_TIMER;
 
-    Vector sk = dugpq.GenerateVector(par::n);
+    Vector sk = lbcrypto::DiscreteGaussianGeneratorImpl<Vector>().GenerateVector(par::n, par::pq);
     Scheme sc0{{par::pp0, par::p0, par::Q, par::Bks}, x10, sk};
     Scheme sc1{{par::pp1, par::p1, par::Q, par::Bks}, x11, sk};
+    auto dugpq = lbcrypto::DiscreteUniformGeneratorImpl<Vector>(par::pq);
 
     Scheme scheme_tensor({par::ppq, par::pq, par::Q, par::Bks}, x1pq);
     auto skk = TensorKey({sc0.skp}, {sc1.skp});
@@ -98,7 +97,7 @@ int main() {
 
     END_TIMER;
 
-    for (usint numRound = 0; numRound < 7; numRound++) {
+    for (usint numRound = 0; numRound < 8; numRound++) {
 
         Vector a = dugpq.GenerateVector(par::n);
         usint m_plain = numRound;
@@ -109,8 +108,10 @@ int main() {
         }
 
         std::vector<usint> f_ct(par::pq, 0);
+        usint sum_f = 0;
         for (usint i = 0; i < par::pq; i++) {
             f_ct[i] = f_plain[(usint)(0.5 + par::t.ConvertToDouble() * i / par::pq) % par::t.ConvertToInt()];
+            sum_f += f_ct[i];
         }
 
         for (usint i = 1, j = par::pq - 1; i < j; i++, j--) {
@@ -187,7 +188,7 @@ int main() {
 
         auto lwect = RetrieveLWECt({cta, ctb}, par::n) + RetrieveLWECt(ct1, par::n);
 
-        lwect[par::n] += par::Q / par::t;
+        lwect[par::n].ModAddEq((par::Q / par::t).ModMul(sum_f, par::Q), par::Q);
 
         END_TIMER;
 
@@ -199,6 +200,11 @@ int main() {
 
         std::cout << "decrypted: " << Resize(result, par::t, par::Q) << std::endl;
         std::cout << "expected: " << f_plain[m_plain] << std::endl;
+
+        if (Resize(result, par::t, par::Q) != f_plain[m_plain]) {
+            std::cout << "Error!" << std::endl;
+            return 1;
+        }
 
     }
 
