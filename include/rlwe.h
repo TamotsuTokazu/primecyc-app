@@ -5,7 +5,8 @@
 #include <vector>
 
 template <typename Poly>
-struct SchemeImpl {
+class SchemeImpl {
+public:
     using Vector = typename Poly::Vector;
     using Integer = typename Poly::Integer;
     using ILParams = typename Poly::Params;
@@ -60,50 +61,6 @@ struct SchemeImpl {
 
     RLWESwitchingKey KeySwitchGen(const RLWEKey &sk, const RLWEKey &skN);
     RLWECiphertext KeySwitch(const RLWECiphertext &ct, const RLWESwitchingKey &K);
-};
-
-template <typename Poly>
-struct BDF17SchemeImpl : public SchemeImpl<Poly> {
-    using Vector = typename SchemeImpl<Poly>::Vector;
-    using Integer = typename SchemeImpl<Poly>::Integer;
-    using ILParams = typename SchemeImpl<Poly>::ILParams;
-
-    using RLWEKey = typename SchemeImpl<Poly>::RLWEKey;
-    using RLWECiphertext = typename SchemeImpl<Poly>::RLWECiphertext;
-    using RLWEGadgetCiphertext = typename SchemeImpl<Poly>::RLWEGadgetCiphertext;
-    using RLWESwitchingKey = typename SchemeImpl<Poly>::RLWESwitchingKey;
-    using RGSWCiphertext = typename SchemeImpl<Poly>::RGSWCiphertext;
-
-
-    using Params = typename SchemeImpl<Poly>::Params;
-
-    std::vector<RGSWCiphertext> bk;
-    Poly x1;
-
-    BDF17SchemeImpl(Params p, Poly x1_, Vector sk = {});
-
-    RLWECiphertext RLWEEncrypt(const Poly &m, const RLWEKey &sk, const Integer &q_plain) override;
-
-    RLWECiphertext Process(Vector a, Integer b, Integer q_plain);
-};
-
-template <typename Poly>
-struct DKMS23SchemeImpl : public SchemeImpl<Poly> {
-    using Vector = typename SchemeImpl<Poly>::Vector;
-    using Integer = typename SchemeImpl<Poly>::Integer;
-    using ILParams = typename SchemeImpl<Poly>::ILParams;
-
-    using RLWEKey = typename SchemeImpl<Poly>::RLWEKey;
-    using RLWECiphertext = typename SchemeImpl<Poly>::RLWECiphertext;
-    using RLWEGadgetCiphertext = typename SchemeImpl<Poly>::RLWEGadgetCiphertext;
-    using RLWESwitchingKey = typename SchemeImpl<Poly>::RLWESwitchingKey;
-    using RGSWCiphertext = typename SchemeImpl<Poly>::RGSWCiphertext;
-
-    using Params = typename SchemeImpl<Poly>::Params;
-
-    DKMS23SchemeImpl(Params p);
-
-    RLWECiphertext Process(Vector a, Integer b, Integer q_plain);
 };
 
 #include "rlwe-impl.h"
