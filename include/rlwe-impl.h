@@ -42,6 +42,11 @@ std::vector<T> SchemeImpl<Poly>::GaloisConjugate(const std::vector<T> &x, const 
     return y;
 }
 
+template <typename Poly> template <typename T1, typename T2>
+std::pair<T1, T2> SchemeImpl<Poly>::GaloisConjugate(const std::pair<T1, T2> &x, const usint &a) {
+    return {GaloisConjugate(x.first, a), GaloisConjugate(x.second, a)};
+}
+
 template <typename Poly>
 typename SchemeImpl<Poly>::RLWECiphertext SchemeImpl<Poly>::RLWEEncrypt(const Poly &m, const RLWEKey &sk, const Integer &q_plain) {
     usint k = sk.size();
@@ -212,8 +217,8 @@ typename SchemeImpl<Poly>::RLWECiphertext SchemeImpl<Poly>::ExtMult(const RLWECi
         }
         ai.SetFormat(EVALUATION);
         bi.SetFormat(EVALUATION);
-        deltaa[i] = ai * ctGSW.first[i][0] + bi * ctGSW.second[i][0];
-        deltab[i] = ai * ctGSW.first[i][1] + bi * ctGSW.second[i][1];
+        deltaa[i] = bi * ctGSW.second[i][0] + ai * ctGSW.first[i][0];
+        deltab[i] = bi * ctGSW.second[i][1] + ai * ctGSW.first[i][1];
     }
     for (usint i = 0; i < l; i++) {
         ra += deltaa[i];

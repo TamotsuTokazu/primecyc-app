@@ -19,6 +19,11 @@ public:
     using Params = typename SchemeImpl<Poly>::Params;
 
     DKMS23SchemeImpl(Params p);
+
+    Poly RLWEDecrypt(const RLWEGadgetCiphertext &ct, const RLWEKey &sk, const Integer &q_plain);
+    RLWEGadgetCiphertext KeySwitch(const RLWEGadgetCiphertext &ct, const RLWESwitchingKey &ksk);
+    RLWEGadgetCiphertext ExtMult(const RLWEGadgetCiphertext &ct, const RGSWCiphertext &ctGSW);
+    RGSWCiphertext SchemeSwitch(const RLWEGadgetCiphertext &ct);
 };
 
 #include "dkms23scheme-impl.h"

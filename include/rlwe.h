@@ -48,6 +48,9 @@ public:
     template <typename T>
     std::vector<T> GaloisConjugate(const std::vector<T> &x, const usint &a);
 
+    template <typename T1, typename T2>
+    std::pair<T1, T2> GaloisConjugate(const std::pair<T1, T2> &x, const usint &a);
+
     void ModSwitch(Poly &x, const Integer &q);
     void ModSwitch(RLWECiphertext &ct, const Integer &q);
 
