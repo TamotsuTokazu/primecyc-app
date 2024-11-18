@@ -3,7 +3,11 @@
 
 template <typename Poly>
 DKMS23SchemeImpl<Poly>::DKMS23SchemeImpl(Params p) : SchemeImpl<Poly>(p, true) {
+    for (usint i = 0; i < this->params.p - 1; i++) {
+        this->skp[i] = (i == 0) ? 1 : 0;
+    }
     this->GaloisKeyGen();
+    ssk = this->RLWEGadgetEncrypt(this->skp * this->skp, {this->skp}, this->params.Q);
 }
 
 template <typename Poly>
@@ -29,6 +33,19 @@ typename DKMS23SchemeImpl<Poly>::RLWEGadgetCiphertext DKMS23SchemeImpl<Poly>::Ex
         result.push_back(SchemeImpl<Poly>::ExtMult(cti, ctGSW));
     }
     return result;
+}
+
+template <typename Poly>
+typename DKMS23SchemeImpl<Poly>::RGSWCiphertext DKMS23SchemeImpl<Poly>::SchemeSwitch(const RLWEGadgetCiphertext &ct) {
+    RLWEGadgetCiphertext ct2;
+    for (const auto &cti: ct) {
+        const auto &a = cti[0];
+        const auto &b = cti[1];
+        auto x = this->Mult(a.Negate(), ssk);
+        x[0] -= b;
+        ct2.push_back(x);
+    }
+    return {ct2, ct};
 }
 
 #endif // _DKMS23SCHEME_IMPL_H_

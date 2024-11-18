@@ -24,21 +24,22 @@ namespace par {
 
 const Integer t("4");
 const usint n = 5;
-const usint N = 16;
+const usint N = 1024;
 const usint Ncyc = 2 * N;
 const usint p = 12289;
 // const Integer Q("576460751449890817");
 // const Integer g("5");
-// const usint p = 73;
+// const usint p = 769;
 const usint rho = 4;
+const usint Noverr = N / rho;
 
 const Integer Q = lbcrypto::LastPrime<Integer>(60, p * (p - 1));
 const Integer g = lbcrypto::FindGenerator(Q);
 const Integer rou = g.ModExp((Q - 1) / p / (p - 1), Q);
 const Integer rN = lbcrypto::RootOfUnity(Ncyc, Integer(p));
-const Integer zeta = rN.ModExp(2 * rho, p);
-const usint Bks = 2;
-const usint Rx = 2;
+const Integer zeta = rN.ModExp(rho, p);
+const usint Bks = 64;
+const usint Rx = 8;
 
 const auto nparams = std::make_shared<ILParams>(Ncyc, p, rN);
 const auto pparams = std::make_shared<ILParams>(p, Q, rou, 0, 0);
@@ -50,27 +51,17 @@ Poly Monomial(usint k);
 Vector PartialFourierTransform(Vector a, usint rho);
 Vector PartialInverseFourierTransform(Vector a, usint rho, usint r);
 
-RLWEGadgetCiphertext EvalInnerProduct(Scheme &sc, std::vector<RGSWCiphertext>::iterator z, const std::vector<Integer> &a);
+RLWEGadgetCiphertext EvalInnerProduct(Scheme &sc, RLWEGadgetCiphertext ct, std::vector<RGSWCiphertext>::iterator z, const std::vector<Integer> &a, usint l, usint d = 1);
 std::vector<RLWEGadgetCiphertext> HomomorphicPFT(Scheme &sc, std::vector<RLWEGadgetCiphertext> z);
 
 int main() {
     primecyc::RaderFFTNat<Vector>::m_enabled[par::p] = true;
 
-    Vector a(par::N, par::p);
-    for (usint i = 0; i < par::N; i++) {
-        a[i] = 1;
-        std::cout << a << std::endl;
-        Vector b = PartialFourierTransform(a, par::rho);
-        std::cout << b << std::endl;
-        Vector c = PartialInverseFourierTransform(b, par::rho, par::Rx);
-        std::cout << c << std::endl << std::endl;
-        a[i] = 0;
-    }
-    return 0;
-
     BaseScheme base_sc({par::nparams, par::Ncyc, par::p, 2}, true);
     Scheme bt_sc({par::pparams, par::p, par::Q, par::Bks});
 
+    base_sc.skp.SetFormat(COEFFICIENT);
+    std::cout << base_sc.skp << std::endl;
     Vector z_pft = PartialFourierTransform(base_sc.skp.GetValues(), par::rho);
     std::cout << z_pft << std::endl;
     std::vector<RGSWCiphertext> bk;
@@ -119,43 +110,60 @@ int main() {
     }
     RLWECiphertext pack_ct = {packct_a, packct_b};
 
-    auto a_pft = PartialFourierTransform(packct_a.GetValues(), par::rho);
+    packct_a.SetFormat(COEFFICIENT);
+    auto a_pft = PartialFourierTransform(packct_a.GetValues(), par::rho) * Integer(par::N / par::rho).ModInverse(par::p);
+    packct_a.SetFormat(EVALUATION);
 
     Poly zero(par::pparams, EVALUATION, true);
     Poly one(par::pparams, EVALUATION, true);
     for (usint i = 0; i < par::p - 1; i++) {
-        zero[i] = 1;
+        one[i] = 1;
+    }
+    RLWEGadgetCiphertext empty_reg;
+    for (const auto &t : bt_sc.params.g) {
+        empty_reg.push_back({zero, one * t});
     }
 
     std::vector<RLWEGadgetCiphertext> regs(par::N);
-    for (usint l = 0; l < par::N; l += par::rho) {
+    Integer zzeta = par::zeta;
+    for (usint k = 0, kk = 0; k < par::Noverr; k++) {
         for (usint i = 0; i < par::rho; i++) {
             std::vector<Integer> a(par::rho);
             for (usint j = 0; j <= i; j++) {
-                a[i - j] = a_pft[j];
-                std::cout << i - j << std::endl;
+                a[i - j] = a_pft[kk * par::rho + j];
             }
             for (usint j = i + 1; j < par::rho; j++) {
-                a[par::rho - j + i] = a_pft[j].ModMul(par::zeta, par::Q);
-                std::cout << par::rho - j + i << std::endl;
+                a[par::rho - j + i] = a_pft[kk * par::rho + j].ModMul(zzeta, par::p);
             }
-            regs[l + i] = EvalInnerProduct(bt_sc, bk.begin() + l, a);
+            regs[kk * par::rho + i] = EvalInnerProduct(bt_sc, empty_reg, bk.begin() + kk * par::rho, a, par::rho);
         }
+        zzeta.ModMulEq(par::zeta, par::p);
+        zzeta.ModMulEq(par::zeta, par::p);
+        for (usint l = par::Noverr >> 1; l > (kk ^= l); l >>= 1);
     }
 
-    std::vector<RLWEGadgetCiphertext> regs2(par::N);
+    Poly foo = packct_a * base_sc.skp;
+    foo.SetFormat(COEFFICIENT);
+    std::cout << foo << std::endl;
 
-    for (usint i = 1; par::rho * i <= par::N; i *= par::Rx) {
-        for (usint j = 0; j < par::N / i; j += par::rho) {
-            std::vector<RGSWCiphertext> z;
-            for (usint k = 0; k < par::rho; k++) {
-                z.push_back(bt_sc.RGSWEncrypt(Monomial(j + k), {bt_sc.skp}));
-            }
-            for (usint k = 0; k < par::rho; k++) {
-                regs2[j + k] = bt_sc.ExtMult(regs2[j + k], z[k]);
+    auto result = HomomorphicPFT(bt_sc, regs);
+    for (usint i = 0; i < par::N; i++) {
+        auto t = bt_sc.RLWEDecrypt(result[i], {bt_sc.skp}, par::t);
+        usint tt = 0;
+        if (t[0] != 0 && t[1] != 0) {
+            tt = par::p - 1;
+        } else {
+            for (usint j = 0; j < par::p - 1; j++) {
+                if (t[j] != 0) {
+                    tt = j;
+                    break;
+                }
             }
         }
+        std::cout << tt << " ";
     }
+    std::cout << std::endl;
+
     return 0;
 }
 
@@ -247,28 +255,28 @@ Vector PartialInverseFourierTransform(Vector a, usint rho, usint r) {
     return std::move(a);
 }
 
-RLWEGadgetCiphertext EvalInnerProduct(Scheme &sc, RLWEGadgetCiphertext ct, std::vector<RGSWCiphertext>::iterator z, const std::vector<Integer> &a) {
+RLWEGadgetCiphertext EvalInnerProduct(Scheme &sc, RLWEGadgetCiphertext ct, std::vector<RGSWCiphertext>::iterator z, const std::vector<Integer> &a, usint l, usint d) {
     Integer t = 1;
-    for (usint i = 0; i < par::rho; i++) {
+    for (usint i = 0; i < l; i++) {
         if (a[i] != 0) {
             t.ModMulEq(a[i].ModInverse(par::p), par::p);
             if (t != 1) {
                 ct = sc.GaloisConjugate(ct, t.ConvertToInt());
                 ct = sc.KeySwitch(ct, sc.ksk_galois[t.ConvertToInt()]);
             }
-            ct = sc.ExtMult(ct, z[i]);
+            ct = sc.ExtMult(ct, z[i * d]);
+            t = a[i];
         }
     }
     if (t != 1) {
         ct = sc.GaloisConjugate(ct, t.ConvertToInt());
         ct = sc.KeySwitch(ct, sc.ksk_galois[t.ConvertToInt()]);
     }
-    std::cout << "decrypted: " << sc.RLWEDecrypt(ct, {sc.skp}, par::t) << std::endl;
     return ct;
 }
 
 std::vector<RLWEGadgetCiphertext> HomomorphicPFT(Scheme &sc, std::vector<RLWEGadgetCiphertext> z) {
-    std::vector<RGSWCiphertext> regs;
+    std::vector<RGSWCiphertext> regs(par::N);
     std::vector<usint> index;
 
     for (usint i = par::rho; i < par::N; i *= par::Rx) {
@@ -287,39 +295,36 @@ std::vector<RLWEGadgetCiphertext> HomomorphicPFT(Scheme &sc, std::vector<RLWEGad
             regs[k] = sc.SchemeSwitch(z[k]);
         }
         for (usint k = 0; k < par::N; k += j) {
-            Integer z = 1;
+            Integer Z = 1;
             for (usint l = 0; l < i; l += par::rho) {
-                for (usint m = 0; m < rho; m++) {
-                // first group: a[k + m], a[k + m + i], ..., a[k + m + (r - 1) * i]
-                // second group: a[k + m + rho], a[k + m + rho + i], ..., a[k + m + rho + (r - 1) * i]
-                // number of groups: i / rho
-                // number of elements in each group: r
-                    Integer zz = z;
+                for (usint m = 0; m < par::rho; m++) {
+                    Integer zz = Z;
                     for (usint f = 0; f < r; f++) {
-                        auto &t = temp[f];
                         Integer zzz = zz;
-                        t = a[k + l + m];
+                        std::vector<Integer> a(r - 1);
                         for (usint g = 1; g < r; g++) {
-                            t.ModAddEq(a[k + l + m + index[g] * i].ModMul(zzz, par::p), par::p);
+                            a[index[g] - 1] = zzz;
                             zzz.ModMulEq(zz, par::p);
                         }
+                        z[k + l + m + f * i] = EvalInnerProduct(sc, regs[k + l + m].second, regs.begin() + k + l + m + i, a, r - 1, i);
                         zz.ModMulEq(w, par::p);
                     }
-                    for (usint f = 0; f < r; f++) {
-                        a[k + l + m + f * i] = temp[f];
-                    }
                 }
-                z.ModMulEq(W, par::p);
+                Z.ModMulEq(W, par::p);
             }
         }
     }
-    Integer w = par::rN.ModExp(par::Ncyc - rho, par::p);
-    Integer z = 1;
-    for (usint i = 0; i < n; i += rho) {
-        for (usint j = 0; j < rho; j++) {
-            a[i + j].ModMulEq(z, par::p);
+
+    Integer w = par::rN.ModExp(par::Ncyc - par::rho, par::p);
+    Integer Z = 1;
+    for (usint i = 0; i < par::N; i += par::rho) {
+        for (usint j = 0; j < par::rho; j++) {
+            if (Z != 1) {
+                z[i + j] = sc.GaloisConjugate(z[i + j], Z.ConvertToInt());
+                z[i + j] = sc.KeySwitch(z[i + j], sc.ksk_galois[Z.ConvertToInt()]);
+            }
         }
-        z.ModMulEq(w, par::p);
+        Z.ModMulEq(w, par::p);
     }
 
     return std::move(z);

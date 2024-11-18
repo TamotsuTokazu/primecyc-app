@@ -18,6 +18,8 @@ public:
 
     using Params = typename SchemeImpl<Poly>::Params;
 
+    RLWEGadgetCiphertext ssk;
+
     DKMS23SchemeImpl(Params p);
 
     Poly RLWEDecrypt(const RLWEGadgetCiphertext &ct, const RLWEKey &sk, const Integer &q_plain);
