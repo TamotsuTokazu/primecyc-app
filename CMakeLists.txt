@@ -6,10 +6,13 @@
     set(CMAKE_CXX_STANDARD_REQUIRED True)
     
     add_subdirectory(lib/openfhe-development)
+    add_subdirectory(lib/openfhe-development/third-party/google-test)
+    add_subdirectory(lib/openfhe-development/third-party/google-benchmark)
 
     # Define the sources directory
     add_subdirectory(src)
     add_subdirectory(examples)
+    add_subdirectory(benchmark)
 
     # Optionally add tests
     enable_testing()
