@@ -111,8 +111,8 @@ static void BM_ArbFFT3889(benchmark::State &state) {
     primecyc::RaderFFTNat<Vector>::m_enabled[3889] = true;
 
     const usint N = 3889;
-    const Integer Q = lbcrypto::LastPrime<Integer>(59, N * (N - 1));
-    const Integer rootOfUnity = lbcrypto::RootOfUnity(N * (N - 1), Q);
+    const Integer Q = 1152921504606750481ll;
+    const Integer rootOfUnity = 717832378426340833ll;
 
     Vector a = lbcrypto::DiscreteUniformGeneratorImpl<Vector>(Q).GenerateVector(N - 1);
 
@@ -172,55 +172,61 @@ static void BM_ArbFFT17497(benchmark::State &state) {
     }
 }
 
-static void BM_FFT23Vec(benchmark::State &state) {
-    using Vector = lbcrypto::NativeVector;
-    using Integer = typename Vector::Integer;
+// static void BM_FFT23Vec(benchmark::State &state) {
+//     using Vector = lbcrypto::NativeVector;
+//     using Integer = typename Vector::Integer;
 
-    const usint N = 768;
-    const Integer Q = lbcrypto::LastPrime<Integer>(59, N);
-    const Integer rootOfUnity = lbcrypto::RootOfUnity(N, Q);
+//     const usint N = 12289;
+//     const Integer Q = 1152921504606625421ll;
+//     const Integer rootOfUnity = Integer(723240097479298971ll).ModExp(N, Q);
+//     // const usint N = 769;
+//     // const Integer Q = lbcrypto::LastPrime<Integer>(59, N * (N - 1));
+//     // const Integer rootOfUnity = lbcrypto::RootOfUnity(N - 1, Q);
 
-    Vector a = lbcrypto::DiscreteUniformGeneratorImpl<Vector>(Q).GenerateVector(N);
+//     Vector a = lbcrypto::DiscreteUniformGeneratorImpl<Vector>(Q).GenerateVector(N - 1);
 
-    for (auto _ : state) {
-        Vector b(N, Q);
-        primecyc::RaderFFTNat<Vector>().ForwardFFTBase2n3(a, rootOfUnity, &b);
-    }
-}
+//     for (auto _ : state) {
+//         Vector b(N - 1, Q);
+//         primecyc::RaderFFTNat<Vector>().ForwardFFTBase2n3(a, rootOfUnity, &b);
+//     }
+// }
 
-static void BM_FFT23StdVec(benchmark::State &state) {
-    using Vector = lbcrypto::NativeVector;
-    using Integer = typename Vector::Integer;
+// static void BM_FFT23StdVec(benchmark::State &state) {
+//     using Vector = lbcrypto::NativeVector;
+//     using Integer = typename Vector::Integer;
 
-    const usint N = 768;
-    const Integer Q = lbcrypto::LastPrime<Integer>(59, N);
-    const Integer rootOfUnity = lbcrypto::RootOfUnity(N, Q);
+//     const usint N = 12289;
+//     const Integer Q = 1152921504606625421ll;
+//     const Integer rootOfUnity = Integer(723240097479298971ll).ModExp(N, Q);
+//     // const usint N = 769;
+//     // const Integer Q = lbcrypto::LastPrime<Integer>(59, N * (N - 1));
+//     // const Integer rootOfUnity = lbcrypto::RootOfUnity(N - 1, Q);
 
-    Vector a = lbcrypto::DiscreteUniformGeneratorImpl<Vector>(Q).GenerateVector(N);
-    std::vector<Integer> aStdVec(N);
-    for (usint i = 0; i < N; i++) {
-        aStdVec[i] = a[i];
-    }
+//     Vector a = lbcrypto::DiscreteUniformGeneratorImpl<Vector>(Q).GenerateVector(N - 1);
+//     std::vector<uint64_t> aStdVec(N - 1);
+//     for (usint i = 0; i < N - 1; i++) {
+//         aStdVec[i] = a[i].ConvertToInt();
+//     }
 
-    for (auto _ : state) {
-        std::vector<Integer> bStdVec(N);
-        primecyc::RaderFFTNat<Vector>().ForwardFFTBase2n3StdVec(aStdVec, Q, rootOfUnity, bStdVec);
-    }
-}
+//     for (auto _ : state) {
+//         std::vector<uint64_t> bStdVec(N - 1);
+//         primecyc::RaderFFTNat<Vector>().ForwardFFTBase2n3AVX(aStdVec, Q.ConvertToInt(), rootOfUnity.ConvertToInt(), bStdVec);
+//     }
+// }
 
-BENCHMARK(BM_PowerOf2FFT512);
-BENCHMARK(BM_PowerOf2FFT1024);
-BENCHMARK(BM_PowerOf2FFT8192);
-BENCHMARK(BM_PowerOf2FFT16384);
+BENCHMARK(BM_PowerOf2FFT512)->Repetitions(10)->ReportAggregatesOnly(true);
+BENCHMARK(BM_PowerOf2FFT1024)->Repetitions(10)->ReportAggregatesOnly(true);
+BENCHMARK(BM_PowerOf2FFT8192)->Repetitions(10)->ReportAggregatesOnly(true);
+BENCHMARK(BM_PowerOf2FFT16384)->Repetitions(10)->ReportAggregatesOnly(true);
 
-BENCHMARK(BM_ArbFFT769);
-BENCHMARK(BM_ArbFFT1153);
-BENCHMARK(BM_ArbFFT3889);
-BENCHMARK(BM_ArbFFT10369);
-BENCHMARK(BM_ArbFFT12289);
-BENCHMARK(BM_ArbFFT17497);
+BENCHMARK(BM_ArbFFT769)->Repetitions(10)->ReportAggregatesOnly(true);
+BENCHMARK(BM_ArbFFT1153)->Repetitions(10)->ReportAggregatesOnly(true);
+BENCHMARK(BM_ArbFFT3889)->Repetitions(10)->ReportAggregatesOnly(true);
+BENCHMARK(BM_ArbFFT10369)->Repetitions(10)->ReportAggregatesOnly(true);
+BENCHMARK(BM_ArbFFT12289)->Repetitions(10)->ReportAggregatesOnly(true);
+BENCHMARK(BM_ArbFFT17497)->Repetitions(10)->ReportAggregatesOnly(true);
 
-BENCHMARK(BM_FFT23Vec);
-BENCHMARK(BM_FFT23StdVec);
+// BENCHMARK(BM_FFT23Vec)->Repetitions(10)->ReportAggregatesOnly(true);
+// BENCHMARK(BM_FFT23StdVec)->Repetitions(10)->ReportAggregatesOnly(true);
 
 BENCHMARK_MAIN();

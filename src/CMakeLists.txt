@@ -26,6 +26,7 @@ set( CMAKE_EXE_LINKER_FLAGS ${OpenFHE_EXE_LINKER_FLAGS} )
 set( CMAKE_CXX_FLAGS "${OpenFHE_CXX_FLAGS} -Ofast -march=native -mtune=native -fno-schedule-insns -funroll-loops -ffinite-math-only -mavx -Wno-unused-variable")
 
 add_definitions(-DPARALLEL)
+add_definitions(-DPARALLEL_EXEC)
 
 add_executable(bdf17 bdf17.cpp)
 target_link_libraries(bdf17 PRIVATE OPENFHEcore_static OPENFHEbinfhe_static)

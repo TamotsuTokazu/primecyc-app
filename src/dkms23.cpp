@@ -4,6 +4,11 @@
 
 #include <chrono>
 
+#define START_TIMER start = std::chrono::system_clock::now()
+#define END_TIMER std::cout << "Time: " << (std::chrono::duration<double>(std::chrono::system_clock::now() - start).count()) << std::endl
+
+std::chrono::time_point<std::chrono::system_clock> start;
+
 using Poly = lbcrypto::NativePoly;
 using Scheme = DKMS23SchemeImpl<Poly>;
 using BaseScheme = SchemeImpl<Poly>;
@@ -23,14 +28,11 @@ using lbcrypto::BigInteger;
 namespace par {
 
 const Integer t("4");
-const usint n = 5;
-const usint N = 1024;
+const usint n = 128;
+const usint N = 256;
 const usint Ncyc = 2 * N;
 const usint p = 12289;
-// const Integer Q("576460751449890817");
-// const Integer g("5");
-// const usint p = 769;
-const usint rho = 4;
+const usint rho = 16;
 const usint Noverr = N / rho;
 
 const Integer Q = lbcrypto::LastPrime<Integer>(60, p * (p - 1));
@@ -38,7 +40,7 @@ const Integer g = lbcrypto::FindGenerator(Q);
 const Integer rou = g.ModExp((Q - 1) / p / (p - 1), Q);
 const Integer rN = lbcrypto::RootOfUnity(Ncyc, Integer(p));
 const Integer zeta = rN.ModExp(rho, p);
-const usint Bks = 64;
+const usint Bks = 16;
 const usint Rx = 8;
 
 const auto nparams = std::make_shared<ILParams>(Ncyc, p, rN);
@@ -57,13 +59,18 @@ std::vector<RLWEGadgetCiphertext> HomomorphicPFT(Scheme &sc, std::vector<RLWEGad
 int main() {
     primecyc::RaderFFTNat<Vector>::m_enabled[par::p] = true;
 
+    START_TIMER;
+
     BaseScheme base_sc({par::nparams, par::Ncyc, par::p, 2}, true);
     Scheme bt_sc({par::pparams, par::p, par::Q, par::Bks});
+
+    END_TIMER;
+
+    START_TIMER;
 
     base_sc.skp.SetFormat(COEFFICIENT);
     std::cout << base_sc.skp << std::endl;
     Vector z_pft = PartialFourierTransform(base_sc.skp.GetValues(), par::rho);
-    std::cout << z_pft << std::endl;
     std::vector<RGSWCiphertext> bk;
     for (usint i = 0; i < par::N; i++) {
         bk.push_back(bt_sc.RGSWEncrypt(Monomial(z_pft[i].ConvertToInt()), {bt_sc.skp}));
@@ -127,6 +134,9 @@ int main() {
     std::vector<RLWEGadgetCiphertext> regs(par::N);
     Integer zzeta = par::zeta;
     for (usint k = 0, kk = 0; k < par::Noverr; k++) {
+#ifdef PARALLEL_EXEC
+    #pragma omp parallel for num_threads(lbcrypto::OpenFHEParallelControls.GetThreadLimit(par::rho))
+#endif
         for (usint i = 0; i < par::rho; i++) {
             std::vector<Integer> a(par::rho);
             for (usint j = 0; j <= i; j++) {
@@ -147,6 +157,9 @@ int main() {
     std::cout << foo << std::endl;
 
     auto result = HomomorphicPFT(bt_sc, regs);
+
+    END_TIMER;
+
     for (usint i = 0; i < par::N; i++) {
         auto t = bt_sc.RLWEDecrypt(result[i], {bt_sc.skp}, par::t);
         usint tt = 0;
@@ -221,10 +234,6 @@ Vector PartialInverseFourierTransform(Vector a, usint rho, usint r) {
             Integer z = 1;
             for (usint l = 0; l < i; l += rho) {
                 for (usint m = 0; m < rho; m++) {
-                // first group: a[k + m], a[k + m + i], ..., a[k + m + (r - 1) * i]
-                // second group: a[k + m + rho], a[k + m + rho + i], ..., a[k + m + rho + (r - 1) * i]
-                // number of groups: i / rho
-                // number of elements in each group: r
                     Integer zz = z;
                     for (usint f = 0; f < r; f++) {
                         auto &t = temp[f];
@@ -291,12 +300,18 @@ std::vector<RLWEGadgetCiphertext> HomomorphicPFT(Scheme &sc, std::vector<RLWEGad
                 for (usint l = r >> 1; l > (kk ^= l); l >>= 1);
             }
         }
+#ifdef PARALLEL_EXEC
+    #pragma omp parallel for num_threads(lbcrypto::OpenFHEParallelControls.GetThreadLimit(par::N))
+#endif
         for (usint k = 0; k < par::N; k++) {
             regs[k] = sc.SchemeSwitch(z[k]);
         }
         for (usint k = 0; k < par::N; k += j) {
             Integer Z = 1;
             for (usint l = 0; l < i; l += par::rho) {
+#ifdef PARALLEL_EXEC
+    #pragma omp parallel for num_threads(lbcrypto::OpenFHEParallelControls.GetThreadLimit(par::rho))
+#endif
                 for (usint m = 0; m < par::rho; m++) {
                     Integer zz = Z;
                     for (usint f = 0; f < r; f++) {

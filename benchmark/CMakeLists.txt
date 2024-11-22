@@ -21,7 +21,7 @@ list(APPEND OPENFHE_INCLUDE_DIRS "${CMAKE_BINARY_DIR}/lib/openfhe-development/sr
 
 include_directories(${OPENFHE_INCLUDE_DIRS})
 set( CMAKE_EXE_LINKER_FLAGS ${OpenFHE_EXE_LINKER_FLAGS} )
-set( CMAKE_CXX_FLAGS "${OpenFHE_CXX_FLAGS} -Ofast -march=native -mtune=native -funroll-loops -ffinite-math-only -mavx -Wno-unused-variable")
+set( CMAKE_CXX_FLAGS "${OpenFHE_CXX_FLAGS} -Ofast -march=native -mtune=native -funroll-loops -ftree-vectorize -mavx2 -ffinite-math-only -Wno-unused-variable -Wno-unused-function")
 
 add_executable(mybenchmark benchmark.cpp)
 target_link_libraries(mybenchmark PRIVATE OPENFHEcore_static OPENFHEbinfhe_static benchmark::benchmark)

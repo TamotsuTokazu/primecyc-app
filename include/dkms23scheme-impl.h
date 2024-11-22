@@ -3,9 +3,6 @@
 
 template <typename Poly>
 DKMS23SchemeImpl<Poly>::DKMS23SchemeImpl(Params p) : SchemeImpl<Poly>(p, true) {
-    for (usint i = 0; i < this->params.p - 1; i++) {
-        this->skp[i] = (i == 0) ? 1 : 0;
-    }
     this->GaloisKeyGen();
     ssk = this->RLWEGadgetEncrypt(this->skp * this->skp, {this->skp}, this->params.Q);
 }

@@ -129,17 +129,19 @@ typename SchemeImpl<Poly>::RLWECiphertext SchemeImpl<Poly>::KeySwitch(const RLWE
     usint kN = K[0][0].size() - 1;
     usint l = params.g.size();
     RLWECiphertext result(kN + 1);
-    for (usint i = 0; i <= kN; ++i) {
+    for (usint i = 0; i < kN; ++i) {
         result[i] = Poly(params.poly, EVALUATION, true);
     }
-    result[kN] += ct[k];
+    result[kN] = ct[k];
     for (usint i = 0; i < k; ++i) {
         auto t = result[kN];
         t.SetFormat(COEFFICIENT);
         auto a = ct[i];
         std::vector<Poly> lista(l);
         a.SetFormat(COEFFICIENT);
-#pragma omp parallel for num_threads(lbcrypto::OpenFHEParallelControls.GetThreadLimit(l))
+#ifdef PARALLEL_MULT
+        #pragma omp parallel for num_threads(lbcrypto::OpenFHEParallelControls.GetThreadLimit(l))
+#endif
         for (usint j = 0; j < l; ++j) {
             const auto &t = params.g[j];
             Poly a0(params.poly, COEFFICIENT, true);
@@ -177,7 +179,9 @@ typename SchemeImpl<Poly>::RLWECiphertext SchemeImpl<Poly>::Mult(Poly a, RLWEGad
     for (usint i = 0; i <= kN; ++i) {
         result[i] = Poly(params.poly, EVALUATION, true);
         std::vector<Poly> delta(l);
-#pragma omp parallel for num_threads(lbcrypto::OpenFHEParallelControls.GetThreadLimit(l))
+#ifdef PARALLEL_MULT
+    #pragma omp parallel for num_threads(lbcrypto::OpenFHEParallelControls.GetThreadLimit(l))
+#endif
         for (usint j = 0; j < l; ++j) {
             const auto &t = params.g[j];
             Poly a0(params.poly, COEFFICIENT, true);
@@ -206,7 +210,9 @@ typename SchemeImpl<Poly>::RLWECiphertext SchemeImpl<Poly>::ExtMult(const RLWECi
     a.SetFormat(COEFFICIENT);
     b.SetFormat(COEFFICIENT);
     std::vector<Poly> deltaa(l), deltab(l);
-#pragma omp parallel for num_threads(lbcrypto::OpenFHEParallelControls.GetThreadLimit(l))
+#ifdef PARALLEL_MULT
+    #pragma omp parallel for num_threads(lbcrypto::OpenFHEParallelControls.GetThreadLimit(l))
+#endif
     for (usint i = 0; i < l; ++i) {
         const auto &t = params.g[i];
         Poly ai(params.poly, COEFFICIENT, true);
